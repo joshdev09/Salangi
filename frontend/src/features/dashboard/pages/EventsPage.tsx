@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import EventCard from '../components/EventCard';
+import SkeletonEventCard from '../components/SkeletonEventCard';    // ← new
 import { Calendar, X, Check } from 'lucide-react';
 import searchIconDefault from '@assets/icons/search-btn-default.svg';
 import searchIconHover from '@assets/icons/search-btn-hover.svg';
@@ -39,12 +40,10 @@ function DatePickerModal({
   const [tempDate, setTempDate] = useState(currentDate);
   const overlayRef = useRef<HTMLDivElement>(null);
 
-  // Sync tempDate when modal opens
   useEffect(() => {
     if (isOpen) setTempDate(currentDate);
   }, [isOpen, currentDate]);
 
-  // ESC to close
   useEffect(() => {
     if (!isOpen) return;
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -83,10 +82,8 @@ function DatePickerModal({
         style={{ animation: 'scaleIn 0.18s ease' }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Top accent bar */}
         <div className="h-1 w-full bg-[#FFE2A0]" />
 
-        {/* Header */}
         <div className="flex items-center justify-between px-6 pt-5 pb-4">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-[#FFE2A0]/10 flex items-center justify-center">
@@ -107,9 +104,7 @@ function DatePickerModal({
 
         <div className="mx-6 h-px bg-white/5" />
 
-        {/* Body */}
         <div className="px-6 py-5 space-y-4">
-          {/* Native date input — styled */}
           <div className="relative">
             <input
               type="date"
@@ -120,7 +115,6 @@ function DatePickerModal({
             />
           </div>
 
-          {/* Formatted preview */}
           <div
             className={`rounded-xl px-4 py-3 border transition-all duration-200 ${
               tempDate
@@ -137,7 +131,6 @@ function DatePickerModal({
           </div>
         </div>
 
-        {/* Footer */}
         <div className="flex gap-2.5 px-6 pb-5">
           <button
             onClick={onClose}
@@ -264,7 +257,6 @@ function Eventspage() {
         onClose={() => setIsDateModalOpen(false)}
       />
 
-      {/* Radial glow */}
       <div
         className="absolute top-0 left-0 rounded-full blur-3xl opacity-60 pointer-events-none hidden md:block"
         style={{
@@ -277,7 +269,7 @@ function Eventspage() {
 
       <div className="relative z-10 h-full flex flex-col px-4 py-4 md:px-6 md:py-6 overflow-y-auto no-scrollbar">
 
-        {/* Header Section */}
+        {/* Header */}
         <div className="shrink-0 flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8">
           <div>
             <h1 className="font-['Playfair_Display'] text-2xl md:text-3xl leading-tight mb-1">
@@ -287,14 +279,14 @@ function Eventspage() {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center">
-            <div 
+            <div
               onMouseEnter={() => setIsSearchHovered(true)}
               onMouseLeave={() => setIsSearchHovered(false)}
               className="relative w-full sm:w-64 lg:w-72 group"
             >
-              <img 
-                src={isSearchHovered ? searchIconHover : searchIconDefault} 
-                className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 transition-all" 
+              <img
+                src={isSearchHovered ? searchIconHover : searchIconDefault}
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 transition-all"
                 alt="search"
               />
               <input
@@ -357,7 +349,6 @@ function Eventspage() {
           </div>
         )}
 
-        {/* Prompt to pick when no date chosen yet */}
         {activeFilter === 'Pick a Date' && !pickedDate && (
           <div className="shrink-0 flex items-center justify-center sm:justify-end mb-6">
             <button
@@ -370,14 +361,13 @@ function Eventspage() {
           </div>
         )}
 
-        {/* Content */}
+        {/* ── Content ── */}
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-24 text-center">
-            <svg className="animate-spin h-6 w-6 mb-4 text-[#FFE2A0]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-            </svg>
-            <p className="text-[#FBFAF8]/40 text-sm animate-pulse">Loading events...</p>
+          // ↓ Skeleton grid — same grid-cols as real events
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5 pb-10">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <SkeletonEventCard key={i} />
+            ))}
           </div>
         ) : filteredEvents.length > 0 ? (
           <>
