@@ -185,14 +185,15 @@ const Gallery = () => {
 
             <div className="px-4 md:px-6 py-6">
                 {loading ? (
-                    <div className="flex items-center justify-center h-48 text-[#a0a0a0]">
-                        <svg className="animate-spin h-6 w-6 mr-3 text-[#FFE2A0]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                        </svg>
-                        Loading gallery...
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                        {[0,1,2,3,4,5,6,7].map(i => (
+                        <div
+                            key={i}
+                            className="aspect-square bg-[#2e2e2e] animate-pulse rounded-2xl border border-[#3a3a3a]"
+                        />
+                        ))}
                     </div>
-                ) : (
+                    ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                         {filteredImages.map((image) => (
                             <div

@@ -578,21 +578,35 @@ const Analytics = () => {
                     <div className="lg:col-span-3 bg-[#3a3a3a] border border-[#4d4d4d] rounded-2xl p-6 min-h-[400px] flex flex-col relative overflow-hidden">
                         <div className="flex justify-between items-center mb-10">
                             <h3 className="text-white text-xl font-semibold">Audience Engagement</h3>
-                            {loading && (
-                                <svg className="animate-spin h-5 w-5 text-[#FFE2A0]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                                </svg>
-                            )}
                         </div>
 
                         {loading ? (
-                            <div className="flex-1 flex items-center justify-center text-[#a0a0a0] text-sm">
-                                Loading engagement data...
+                            <div className="flex-1 flex flex-col gap-4 pt-2">
+                                {/* Fake legend */}
+                                <div className="flex gap-4 px-1">
+                                <div className="h-3 w-24 bg-[#2e2e2e] animate-pulse rounded-full" />
+                                <div className="h-3 w-32 bg-[#2e2e2e] animate-pulse rounded-full" />
+                                </div>
+                                {/* Chart area */}
+                                <div className="flex-1 flex items-end gap-[3%] px-2 pb-2 min-h-[280px]">
+                                {[60,85,45,90,55,75,40,95,65,80,50,70].map((h, i) => (
+                                    <div
+                                    key={i}
+                                    className="flex-1 bg-[#2e2e2e] animate-pulse rounded-t-md"
+                                    style={{ height: `${h}%` }}
+                                    />
+                                ))}
+                                </div>
+                                {/* X-axis */}
+                                <div className="flex justify-between px-2 border-t border-[#4d4d4d] pt-3">
+                                {[0,1,2,3,4,5].map(i => (
+                                    <div key={i} className="h-2 w-10 bg-[#2e2e2e] animate-pulse rounded" />
+                                ))}
+                                </div>
                             </div>
-                        ) : (
+                            ) : (
                             <EngagementChart series={chartSeries} />
-                        )}
+                            )}
                     </div>
                 </div>
             </div>
