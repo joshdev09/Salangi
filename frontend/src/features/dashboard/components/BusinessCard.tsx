@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Image as ImageIcon, Star, X, ZoomIn, Share2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Image as ImageIcon, Star, X, ZoomIn, Share2, Download } from 'lucide-react';
 import type { Listing } from '../../Data/Listings';
 import { ROUTES } from '../../../routes/paths';
 import { supabase } from '@/lib/supabase';
+import QRCode from 'qrcode';
+import salangiLogo from '@assets/png-files/salangi-logo.png';
 
 import locBtnSelected from '@assets/icons/map-btn-active.svg';
 import locBtn from '@assets/icons/map-btn-default.svg';
@@ -233,6 +235,8 @@ function BusinessCard({
   const [galleryImages, setGalleryImages] = useState<string[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [copyFeedback, setCopyFeedback] = useState(false);
+  const [showQR, setShowQR] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -297,45 +301,45 @@ function BusinessCard({
   const handleShare = useCallback(async (e: React.MouseEvent) => {
     e.stopPropagation();
 
-    // Use clean slug URL if available, fall back to query param for listings without a slug
     const shareUrl = listing.slug
       ? `${window.location.origin}/listing/${listing.slug}`
       : `${window.location.origin}/home-page?listingId=${listing.id}`;
 
-    if (navigator.share && /Mobi|Android/i.test(navigator.userAgent)) {
-      supabase.from('listing_interactions').insert({ listing_id: listing.id, type: 'share' });
-      try {
-        await navigator.share({ title: listing.name, text: listing.description, url: shareUrl });
-      } catch {
-        // User cancelled
-      }
-    } else {
-      if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(shareUrl).then(() => {
-          setCopyFeedback(true);
-          setTimeout(() => setCopyFeedback(false), 2000);
-        }).catch(() => {
-          window.prompt('Copy this link:', shareUrl);
-        });
-      } else {
-        const input = document.createElement('input');
-        input.value = shareUrl;
-        input.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
-        document.body.appendChild(input);
-        input.focus();
-        input.select();
-        const didCopy = document.execCommand('copy');
-        document.body.removeChild(input);
-        if (didCopy) {
-          setCopyFeedback(true);
-          setTimeout(() => setCopyFeedback(false), 2000);
-        } else {
-          window.prompt('Copy this link:', shareUrl);
-        }
-      }
-      supabase.from('listing_interactions').insert({ listing_id: listing.id, type: 'share' });
-    }
-  }, [listing.id, listing.name, listing.description, listing.slug]);
+    supabase.from('listing_interactions').insert({ listing_id: listing.id, type: 'share' });
+
+    // Generate QR code with logo overlay
+    const canvas = document.createElement('canvas');
+    const size = 400;
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    const qrCanvas = document.createElement('canvas');
+    await QRCode.toCanvas(qrCanvas, shareUrl, {
+      width: size,
+      margin: 2,
+      color: { dark: '#1a1a1a', light: '#FBFAF8' },
+    });
+    ctx.drawImage(qrCanvas, 0, 0);
+
+    const logoSize = size * 0.18;
+    const cx = size / 2;
+    const cy = size / 2;
+    const padding = 8;
+
+    ctx.beginPath();
+    ctx.arc(cx, cy, logoSize / 2 + padding, 0, Math.PI * 2);
+    ctx.fillStyle = '#FBFAF8';
+    ctx.fill();
+
+    const logo = new Image();
+    logo.src = salangiLogo;
+    await new Promise<void>((res) => { logo.onload = () => res(); });
+    ctx.drawImage(logo, cx - logoSize / 2, cy - logoSize / 2, logoSize, logoSize);
+
+    setQrDataUrl(canvas.toDataURL('image/png'));
+    setShowQR(true);
+  }, [listing.id, listing.slug]);
 
   return (
     <>
@@ -556,6 +560,63 @@ function BusinessCard({
           </div>
         </div>
       </div>
+      {showQR && qrDataUrl && createPortal(
+        <div
+          onClick={() => setShowQR(false)}
+          style={{ position: 'fixed', inset: 0, zIndex: 999999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ background: '#1e1e1e', borderRadius: '20px', padding: '28px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', boxShadow: '0 24px 60px rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.08)', maxWidth: '320px', width: '90%' }}
+          >
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+              <div>
+                <p style={{ color: '#FBFAF8', fontWeight: 700, fontSize: '15px', margin: 0 }}>{listing.name}</p>
+                <p style={{ color: '#888', fontSize: '11px', margin: 0, marginTop: '2px' }}>Scan to open listing</p>
+              </div>
+              <button
+                onClick={() => setShowQR(false)}
+                style={{ background: '#333', border: 'none', borderRadius: '50%', width: '30px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#FBFAF8' }}
+              >
+                <X size={14} />
+              </button>
+            </div>
+
+            {/* QR Image */}
+            <div style={{ borderRadius: '12px', overflow: 'hidden', border: '3px solid #FFE2A0', lineHeight: 0 }}>
+              <img src={qrDataUrl} alt="QR Code" style={{ width: '220px', height: '220px', display: 'block' }} />
+            </div>
+
+            {/* Buttons */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
+              <a
+                href={qrDataUrl}
+                download={`salangi-${listing.slug || listing.id}.png`}
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#FFE2A0', color: '#1a1a1a', fontWeight: 700, fontSize: '12px', padding: '10px 20px', borderRadius: '10px', textDecoration: 'none', width: '100%', justifyContent: 'center', boxSizing: 'border-box' }}
+              >
+                <Download size={13} />
+                Save QR Code
+              </a>
+              <button
+                onClick={() => {
+                  const shareUrl = listing.slug
+                    ? `${window.location.origin}/listing/${listing.slug}`
+                    : `${window.location.origin}/home-page?listingId=${listing.id}`;
+                  navigator.clipboard.writeText(shareUrl).then(() => {
+                    setCopyFeedback(true);
+                    setTimeout(() => setCopyFeedback(false), 2000);
+                  });
+                }}
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#2e2e2e', color: copyFeedback ? '#FFE2A0' : '#FBFAF8', fontWeight: 700, fontSize: '12px', padding: '10px 20px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', width: '100%', justifyContent: 'center', cursor: 'pointer', transition: 'color 0.2s' }}
+              >
+                {copyFeedback ? '✓ Link copied!' : '🔗 Copy Link'}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </>
   );
 }
