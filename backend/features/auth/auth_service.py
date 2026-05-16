@@ -29,6 +29,37 @@ class User(Base):
 
 # ─── Supabase Admin Helpers ───────────────────────────────────────────────────
 
+def set_session_token(user_id: str, token: str):
+    """Write the new session token to profiles table, invalidating any prior session."""
+    url     = f"{SUPABASE_URL}/rest/v1/profiles?id=eq.{user_id}"
+    payload = json.dumps({"session_token": token}).encode("utf-8")
+    req = urllib.request.Request(
+        url, data=payload, method="PATCH",
+        headers={
+            "Content-Type":  "application/json",
+            "apikey":         SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization":  f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+        },
+    )
+    with urllib.request.urlopen(req):
+        pass
+
+
+def get_session_token(user_id: str) -> str | None:
+    """Fetch the stored session token from profiles."""
+    url = f"{SUPABASE_URL}/rest/v1/profiles?id=eq.{user_id}&select=session_token"
+    req = urllib.request.Request(
+        url, method="GET",
+        headers={
+            "apikey":         SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization":  f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+        },
+    )
+    with urllib.request.urlopen(req) as res:
+        data = json.loads(res.read())
+        return data[0]["session_token"] if data else None
+
+
 def update_supabase_metadata(user_id: str, first_name: str, last_name: str):
     """Update auth.users user_metadata via Supabase Admin API."""
     try:

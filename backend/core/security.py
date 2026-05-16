@@ -30,6 +30,11 @@ if not SECRET_KEY:
 if not SUPABASE_PROJECT_REF:
     raise ValueError("SUPABASE_PROJECT_REF not found in .env")
 
+def generate_session_token() -> str:
+    import secrets
+    return secrets.token_hex(32)
+
+
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
@@ -75,32 +80,48 @@ _jwks_cache: dict | None = None  # Cache JWKS to avoid a network hit on every re
 def decode_supabase_token(token: str) -> dict | None:
     global _jwks_cache
     try:
+        # ── Try ES256 via JWKS first ──────────────────────────────────────────
         if _jwks_cache is None:
             jwks_url = f"https://{SUPABASE_PROJECT_REF}.supabase.co/auth/v1/.well-known/jwks.json"
-            with urllib.request.urlopen(jwks_url) as response:
-                _jwks_cache = json.loads(response.read())
-        jwks = _jwks_cache
+            try:
+                with urllib.request.urlopen(jwks_url, timeout=5) as response:
+                    _jwks_cache = json.loads(response.read())
+            except Exception as e:
+                print(f"⚠️  JWKS fetch failed: {e}")
+                # Don't cache on failure — retry next request
+                _jwks_cache = None
 
-        header = pyjwt.get_unverified_header(token)
-        kid = header.get("kid")
+        if _jwks_cache:
+            header = pyjwt.get_unverified_header(token)
+            kid = header.get("kid")
+            alg = header.get("alg", "")
 
-        public_key = None
-        for key in jwks["keys"]:
-            if key["kid"] == kid:
-                public_key = ECAlgorithm.from_jwk(json.dumps(key))
-                break
+            if alg == "ES256":
+                for key in _jwks_cache["keys"]:
+                    if key.get("kid") == kid:
+                        public_key = ECAlgorithm.from_jwk(json.dumps(key))
+                        payload = pyjwt.decode(
+                            token, public_key, algorithms=["ES256"],
+                            options={"verify_aud": False},
+                            leeway=timedelta(seconds=60),
+                        )
+                        return payload
 
-        if not public_key:
-            return None
+        # ── Fallback: HS256 with SUPABASE_JWT_SECRET (local dev / older projects) ──
+        if SUPABASE_JWT_SECRET:
+            try:
+                payload = pyjwt.decode(
+                    token, SUPABASE_JWT_SECRET, algorithms=["HS256"],
+                    options={"verify_aud": False},
+                    leeway=timedelta(seconds=60),
+                )
+                return payload
+            except Exception:
+                pass
 
-        payload = pyjwt.decode(
-            token,
-            public_key,
-            algorithms=["ES256"],
-            options={"verify_aud": False},
-        )
-        return payload
-    except Exception:
+        return None
+    except Exception as e:
+        print(f"⚠️  Token decode error: {e}")
         return None
 
 
