@@ -8,6 +8,7 @@ import {
   Phone, Globe, Facebook, Mail, FileText, Eye, Lock, User,
 } from 'lucide-react';
 import { ROUTES } from '../../../routes/paths';
+import { authFetch } from '../../../services/api';
 import { useAdminGuard } from '../../../hooks/useAdminGuard';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -954,23 +955,10 @@ function AdminDashboard() {
   const handleApproveListing = async (id: number) => {
     setActionLoading(id);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      if (!token) throw new Error('Not authenticated');
-
-      const apiBase = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
-      const res = await fetch(`${apiBase}/api/listings/approve`, {
+      const json = await authFetch('/api/listings/approve', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
         body: JSON.stringify({ listing_id: id }),
       });
-
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.detail ?? 'Approval failed');
-
       const emailNote = json.email_sent ? ' Email sent to owner.' : ' (No email on file.)';
       showToast(`Listing approved!${emailNote}`, 'success');
       setListings(prev => prev.filter(l => l.id !== id));

@@ -51,7 +51,7 @@ async function getToken(): Promise<string> {
 }
 
 // -- Shared fetch helper -------------------------------------------------------
-async function authFetch(path: string, options: RequestInit = {}): Promise<any> {
+export async function authFetch(path: string, options: RequestInit = {}): Promise<any> {
   const token = await getToken();
   const sessionToken = localStorage.getItem('session_token');
 
