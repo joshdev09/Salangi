@@ -43,6 +43,13 @@ console.log('API Base URL:', BASE_URL, 'Mode:', import.meta.env.MODE);
 
 // -- Get live Supabase session token ------------------------------------------
 async function getToken(): Promise<string> {
+  // refreshSession() hits the network and restores the token even when
+  // localStorage is stale (e.g. www. vs non-www origin mismatch).
+  const { data: refreshData } = await supabase.auth.refreshSession();
+  if (refreshData.session?.access_token) {
+    return refreshData.session.access_token;
+  }
+  // Fallback: read existing session as-is
   const { data, error } = await supabase.auth.getSession();
   if (error || !data.session?.access_token) {
     throw new Error('Not authenticated. Please sign in again.');
