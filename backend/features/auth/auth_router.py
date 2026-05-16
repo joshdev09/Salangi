@@ -84,6 +84,6 @@ def delete(
 
 @router.post("/upgrade-to-business", response_model=dict)
 def upgrade(
-    user_id: str = Depends(verify_session),
+    user_id: str = Depends(get_current_user_id),
 ):
     return upgrade_to_business(user_id)
