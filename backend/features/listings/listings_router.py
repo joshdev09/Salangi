@@ -41,6 +41,24 @@ class ApproveListing(BaseModel):
     listing_id: int
 
 
+# ── Helpers ────────────────────────────────────────────────────────────────────
+
+def get_auth_user_email(user_id: str) -> str | None:
+    """Fetch email from Supabase Auth admin API (auth.users)."""
+    try:
+        url = f"{SUPABASE_URL}/auth/v1/admin/users/{user_id}"
+        req = urllib.request.Request(url, method="GET", headers={
+            "apikey":        SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+        })
+        with urllib.request.urlopen(req) as res:
+            data = json.loads(res.read())
+            return data.get("email")
+    except Exception as e:
+        print(f"⚠️  Could not fetch auth email for user_id {user_id}: {e}")
+        return None
+
+
 # ── Routes ─────────────────────────────────────────────────────────────────────
 
 @router.post("/approve", response_model=dict)
@@ -80,22 +98,13 @@ def approve_listing(
     with urllib.request.urlopen(patch_req):
         pass
 
-    # ── Step 3: Fall back to account email via user_id ────────────────────────
+    # ── Step 3: Fall back to auth.users email via user_id ────────────────────
     if not owner_email:
         user_id = listing.get("user_id")
         if user_id:
-            user_url = f"{SUPABASE_URL}/rest/v1/users?user_id=eq.{user_id}&select=email"
-            user_req = urllib.request.Request(user_url, method="GET", headers={
-                "apikey":        SUPABASE_SERVICE_ROLE_KEY,
-                "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-            })
-            try:
-                with urllib.request.urlopen(user_req) as res:
-                    user_rows = json.loads(res.read())
-                    if user_rows:
-                        owner_email = user_rows[0].get("email")
-            except Exception as e:
-                print(f"⚠️  Could not fetch user email for user_id {user_id}: {e}")
+            owner_email = get_auth_user_email(user_id)
+            if owner_email:
+                print(f"📧 Resolved email from auth.users: {owner_email}")
 
     # ── Step 4: Send approval email (best-effort) ─────────────────────────────
     email_sent = False
@@ -103,9 +112,11 @@ def approve_listing(
         try:
             send_listing_approved_email(owner_email, business_name)
             email_sent = True
-            print(f"✅ Approval email sent to {owner_email} for listing '{business_name}'")
+            print(f"✅ Approval email sent to {owner_email} for '{business_name}'")
         except Exception as e:
             print(f"⚠️  Approval email failed for listing {listing_id}: {e}")
+    else:
+        print(f"⚠️  No email found for listing {listing_id}")
 
     return {
         "message":    "Listing approved successfully.",
