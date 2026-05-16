@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from backend.db.database import Base, engine
 from backend.features.auth.auth_router import router as auth_router
+from backend.features.listings.listings_router import router as listings_router
 
 load_dotenv()
 
@@ -30,3 +31,4 @@ app.add_middleware(
 )
 
 app.include_router(auth_router)
+app.include_router(listings_router)

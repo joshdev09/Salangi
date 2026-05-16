@@ -953,9 +953,30 @@ function AdminDashboard() {
 
   const handleApproveListing = async (id: number) => {
     setActionLoading(id);
-    const { error } = await supabase.from('listings').update({ verified: true }).eq('id', id);
-    if (error) showToast('Failed to approve listing.', 'error');
-    else { showToast('Listing approved!', 'success'); setListings(prev => prev.filter(l => l.id !== id)); }
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error('Not authenticated');
+
+      const apiBase = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
+      const res = await fetch(`${apiBase}/api/listings/approve`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ listing_id: id }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.detail ?? 'Approval failed');
+
+      const emailNote = json.email_sent ? ' Email sent to owner.' : ' (No email on file.)';
+      showToast(`Listing approved!${emailNote}`, 'success');
+      setListings(prev => prev.filter(l => l.id !== id));
+    } catch (err: any) {
+      showToast(err.message ?? 'Failed to approve listing.', 'error');
+    }
     setActionLoading(null);
   };
 
@@ -1139,7 +1160,7 @@ function AdminDashboard() {
 
       {/* Toast */}
       {toast && (
-        <div className={`fixed bottom-6 right-6 flex items-center gap-3 px-5 py-3.5 rounded-xl text-sm font-semibold shadow-2xl border transition-all z-50 ${
+        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 px-5 py-3.5 rounded-xl text-sm font-semibold shadow-2xl border transition-all z-50 ${
           toast.type === 'success'
             ? 'bg-[#333333] border-green-500/30 text-green-400'
             : 'bg-[#333333] border-red-500/30 text-red-400'
