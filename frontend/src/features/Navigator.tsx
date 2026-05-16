@@ -110,9 +110,9 @@ export function Navigator() {
         .from('users')
         .select('first_name, last_name, email, profile_pic')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
-      if (error) throw error;
+      if (error) console.warn('Error refreshing user profile:', error);
 
       setDisplayName({
         firstName: profile?.first_name || user.user_metadata?.first_name || '',

@@ -35,11 +35,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // ── Fetch role from DB for a given userId ──────────────────────────────────
   const fetchRole = async (userId: string) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('profiles')
       .select('role')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
+    if (error) console.error('Error refreshing user profile:', error);
     setRole((data?.role as Role) ?? 'user');
   };
 
