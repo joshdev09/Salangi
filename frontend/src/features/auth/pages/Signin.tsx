@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
+import axios from 'axios';
 import { ROUTES } from '../../../routes/paths';
 
 //bg
@@ -31,6 +32,19 @@ function Signin() {
         await supabase.auth.signOut();
         setError('Please verify your email before signing in. Check your inbox.');
         return;
+      }
+
+      // Register session on backend — invalidates any concurrent sessions
+      try {
+        const apiUrl = import.meta.env.VITE_API_URL?.replace(/\/$/, '');
+        const res = await axios.post(
+          `${apiUrl}/api/auth/session-login`,
+          {},
+          { headers: { Authorization: `Bearer ${data.session!.access_token}` } }
+        );
+        localStorage.setItem('session_token', res.data.session_token);
+      } catch (sessionErr) {
+        console.warn('Session registration failed:', sessionErr);
       }
 
       // Check if user is admin
