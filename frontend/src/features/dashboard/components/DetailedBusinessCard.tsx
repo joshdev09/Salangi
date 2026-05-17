@@ -194,6 +194,13 @@ function DetailedBusinessCard({
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
+  // ── Custom Tab ─────────────────────────────────────────────────────────────
+  type TabName = 'overview' | 'custom' | 'reviews';
+  interface TabItem { id: number; category: string; name: string; price: number; sort_order: number; }
+  const [activeTab, setActiveTab] = useState<TabName>('overview');
+  const [customTabLabel, setCustomTabLabel] = useState<string | null>(null);
+  const [tabItems, setTabItems] = useState<TabItem[]>([]);
+
   const hasImages = allImages.length > 0;
 
   useEffect(() => {
@@ -201,6 +208,33 @@ function DetailedBusinessCard({
       listing_id: listingId,
       type: 'view',
     });
+  }, [listingId]);
+
+  // ── Fetch custom tab data ──────────────────────────────────────────────────
+  useEffect(() => {
+    const fetchTab = async () => {
+      const { data: tabRow } = await supabase
+        .from('listing_tabs')
+        .select('*')
+        .eq('listing_id', listingId)
+        .eq('is_enabled', true)
+        .maybeSingle();
+
+      if (!tabRow) return;
+
+      const label = tabRow.tab_label.charAt(0).toUpperCase() + tabRow.tab_label.slice(1);
+      setCustomTabLabel(label);
+
+      const { data: items } = await supabase
+        .from('listing_tab_items')
+        .select('*')
+        .eq('listing_id', listingId)
+        .order('sort_order');
+
+      setTabItems(items ?? []);
+    };
+
+    fetchTab();
   }, [listingId]);
 
   const nextImage = (e: React.MouseEvent) => {
@@ -297,7 +331,7 @@ function DetailedBusinessCard({
       )}
 
       {/* ✅ FIX 1: added max-w-120 and mx-auto to match deployed */}
-      <div className="w-full max-w-120 bg-[#333333] rounded-xl overflow-hidden shrink-0 mb-10 shadow-2xl border border-zinc-800/50 mx-auto">
+      <div className="bg-[#333333] rounded-xl overflow-hidden shrink-0 mb-10 shadow-2xl border border-zinc-800/50" style={{ width: '100%' }}>
         <div className="relative flex flex-col">
 
           {/* Heart Icon */}
@@ -375,7 +409,8 @@ function DetailedBusinessCard({
             )}
           </div>
 
-          <div className="p-6">
+
+          <div className="p-6 min-h-[420px] min-w-0 overflow-hidden">
             {/* Header */}
             <div className="flex items-center justify-between gap-4 mb-4">
               <div className="flex items-center gap-2">
@@ -388,120 +423,179 @@ function DetailedBusinessCard({
               </div>
             </div>
 
-            <p className="text-sm text-[#FBFAF8]/70 leading-relaxed mb-2 pb-6">
-              {description}
-            </p>
-
-            {/* Info Row */}
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mb-6 pb-6 border-b border-zinc-600/50">
-              <div className="flex items-center gap-2">
-                <img src={locBtnSelected} width="14" alt="location" className="opacity-70" />
-                <span className="text-[#FBFAF8]/50 text-xs font-medium">{location}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <img src={timeIcon} width="14" alt="hours" className="opacity-70" />
-                <span className="text-[#FBFAF8]/50 text-xs font-medium">{formatHours(hours)}</span>
-              </div>
+            {/* ── Tab Bar ──────────────────────────────────────────────────── */}
+            <div className="flex gap-1 mb-5 border-b border-zinc-700/50">
+              {(['overview', ...(customTabLabel && tabItems.length > 0 ? ['custom'] : []), 'reviews'] as const).map((tab) => {
+                const label = tab === 'custom' ? customTabLabel! : tab.charAt(0).toUpperCase() + tab.slice(1);
+                const isActive = activeTab === tab;
+                return (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab as TabName)}
+                    className={`px-4 py-2 text-xs font-semibold tracking-wide transition-all border-b-2 -mb-px cursor-pointer ${
+                      isActive
+                        ? 'border-[#FFE2A0] text-[#FFE2A0]'
+                        : 'border-transparent text-[rgba(255,255,255,0.4)] hover:text-[rgba(255,255,255,0.7)]'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
             </div>
 
-            {/* Contact */}
-            <div className="flex flex-col gap-1 pb-6 border-b border-zinc-600/50">
-              {phone && (
-                <div
-                  onClick={() => handleCopy(phone, 'phone')}
-                  className="relative flex items-center gap-4 text-sm text-[#FBFAF8]/80 hover:text-[#FBFAF8] px-3 py-2.5 rounded-xl border border-transparent hover:border-[#FFE2A0] hover:bg-[#FFE2A0]/5 transition-all duration-300 cursor-pointer group"
-                >
-                  <img src={callIcon} width="16" className="opacity-70 group-hover:opacity-100" alt="call" />
-                  <span>{phone}</span>
-                  {copyFeedback === 'phone' && <span className="absolute right-4 text-[10px] text-[#FFE2A0] font-bold">Copied!</span>}
-                </div>
-              )}
-              {email && (
-                <div
-                  onClick={() => handleCopy(email, 'email')}
-                  className="relative flex items-center gap-4 text-sm text-[#FBFAF8]/80 hover:text-[#FBFAF8] px-3 py-2.5 rounded-xl border border-transparent hover:border-[#FFE2A0] hover:bg-[#FFE2A0]/5 transition-all duration-300 cursor-pointer group"
-                >
-                  <img src={emailIcon} width="16" className="opacity-70 group-hover:opacity-100" alt="email" />
-                  <span>{email}</span>
-                  {copyFeedback === 'email' && <span className="absolute right-4 text-[10px] text-[#FFE2A0] font-bold">Copied!</span>}
-                </div>
-              )}
-              {facebook && (
-                <div
-                  onClick={() => window.open(facebook.startsWith('http') ? facebook : `https://${facebook}`, '_blank')}
-                  className="relative flex items-center gap-4 text-sm text-[#FBFAF8]/80 hover:text-[#FBFAF8] px-3 py-2.5 rounded-xl border border-transparent hover:border-[#FFE2A0] hover:bg-[#FFE2A0]/5 transition-all duration-300 cursor-pointer group"
-                >
-                  <img src={facebookIcon} width="16" className="opacity-70 group-hover:opacity-100" alt="fb" />
-                  <span>{facebook}</span>
-                </div>
-              )}
-              {website && (
-                <div
-                  onClick={() => window.open(website.startsWith('http') ? website : `https://${website}`, '_blank')}
-                  className="relative flex items-center gap-4 text-sm text-[#FBFAF8]/80 hover:text-[#FBFAF8] px-3 py-2.5 rounded-xl border border-transparent hover:border-[#FFE2A0] hover:bg-[#FFE2A0]/5 transition-all duration-300 cursor-pointer group"
-                >
-                  <img src={websiteIcon} width="16" className="opacity-70 group-hover:opacity-100" alt="web" />
-                  <span>{website}</span>
-                </div>
-              )}
-              <button
-                onClick={handleGetDirections}
-                className="mt-2 flex items-center gap-3 text-sm text-[#FBFAF8]/80 hover:text-[#FBFAF8] px-3 py-2.5 rounded-xl border border-transparent hover:border-[#FFE2A0] hover:bg-[#FFE2A0]/5 transition-all duration-300 cursor-pointer group w-full text-left"
-              >
-                <img src={locBtn} width="16" className="text-[#F5F0EC] opacity-70 group-hover:opacity-100" alt="directions" />
-                <span>Get Directions</span>
-              </button>
-            </div>
+            {/* ── Overview Panel ───────────────────────────────────────────── */}
+            {activeTab === 'overview' && (
+              <>
+                <p className="text-sm text-[#FBFAF8]/70 leading-relaxed mb-2 pb-6">
+                  {description}
+                </p>
 
-            {/* Ratings Summary */}
-            <div className="py-6">
-              <p className="text-xs text-zinc-400 mb-1">Customer Reviews ({reviewsCount})</p>
-              <div className="flex flex-col">
-                <span className="text-5xl font-serif text-[#FBFAF8]">
-                  {reviewsCount > 0 ? rating.toFixed(1) : '—'}
-                </span>
-                <div className="flex gap-1 mt-2">
-                  {[...Array(5)].map((_, i) => (
-                    <img key={i} src={starIcon} width="9" alt="star"
-                      className={i < Math.floor(rating) ? 'opacity-100' : 'opacity-30'} />
-                  ))}
+                <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mb-6 pb-6 border-b border-zinc-600/50">
+                  <div className="flex items-center gap-2">
+                    <img src={locBtnSelected} width="14" alt="location" className="opacity-70" />
+                    <span className="text-[#FBFAF8]/50 text-xs font-medium">{location}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <img src={timeIcon} width="14" alt="hours" className="opacity-70" />
+                    <span className="text-[#FBFAF8]/50 text-xs font-medium">{formatHours(hours)}</span>
+                  </div>
                 </div>
-              </div>
-            </div>
 
-            {/* Review List */}
-            {reviewsLoading ? (
-              <p className="text-sm text-zinc-500 animate-pulse">Loading reviews...</p>
-            ) : reviews.length === 0 ? (
-              <p className="text-sm text-zinc-500">No reviews yet. Be the first!</p>
-            ) : (
-              <div className="space-y-12 mt-4">
-                {reviews.map((review) => (
-                  <ReviewItem key={review.id} {...review} />
-                ))}
+                <div className="flex flex-col gap-1 pb-6">
+                  {phone && (
+                    <div
+                      onClick={() => handleCopy(phone, 'phone')}
+                      className="relative flex items-center gap-4 text-sm text-[#FBFAF8]/80 hover:text-[#FBFAF8] px-3 py-2.5 rounded-xl border border-transparent hover:border-[#FFE2A0] hover:bg-[#FFE2A0]/5 transition-all duration-300 cursor-pointer group"
+                    >
+                      <img src={callIcon} width="16" className="opacity-70 group-hover:opacity-100" alt="call" />
+                      <span>{phone}</span>
+                      {copyFeedback === 'phone' && <span className="absolute right-4 text-[10px] text-[#FFE2A0] font-bold">Copied!</span>}
+                    </div>
+                  )}
+                  {email && (
+                    <div
+                      onClick={() => handleCopy(email, 'email')}
+                      className="relative flex items-center gap-4 text-sm text-[#FBFAF8]/80 hover:text-[#FBFAF8] px-3 py-2.5 rounded-xl border border-transparent hover:border-[#FFE2A0] hover:bg-[#FFE2A0]/5 transition-all duration-300 cursor-pointer group"
+                    >
+                      <img src={emailIcon} width="16" className="opacity-70 group-hover:opacity-100" alt="email" />
+                      <span>{email}</span>
+                      {copyFeedback === 'email' && <span className="absolute right-4 text-[10px] text-[#FFE2A0] font-bold">Copied!</span>}
+                    </div>
+                  )}
+                  {facebook && (
+                    <div
+                      onClick={() => window.open(facebook.startsWith('http') ? facebook : `https://${facebook}`, '_blank')}
+                      className="relative flex items-center gap-4 text-sm text-[#FBFAF8]/80 hover:text-[#FBFAF8] px-3 py-2.5 rounded-xl border border-transparent hover:border-[#FFE2A0] hover:bg-[#FFE2A0]/5 transition-all duration-300 cursor-pointer group"
+                    >
+                      <img src={facebookIcon} width="16" className="opacity-70 group-hover:opacity-100" alt="fb" />
+                      <span>{facebook}</span>
+                    </div>
+                  )}
+                  {website && (
+                    <div
+                      onClick={() => window.open(website.startsWith('http') ? website : `https://${website}`, '_blank')}
+                      className="relative flex items-center gap-4 text-sm text-[#FBFAF8]/80 hover:text-[#FBFAF8] px-3 py-2.5 rounded-xl border border-transparent hover:border-[#FFE2A0] hover:bg-[#FFE2A0]/5 transition-all duration-300 cursor-pointer group"
+                    >
+                      <img src={websiteIcon} width="16" className="opacity-70 group-hover:opacity-100" alt="web" />
+                      <span>{website}</span>
+                    </div>
+                  )}
+                  <button
+                    onClick={handleGetDirections}
+                    className="mt-2 flex items-center gap-3 text-sm text-[#FBFAF8]/80 hover:text-[#FBFAF8] px-3 py-2.5 rounded-xl border border-transparent hover:border-[#FFE2A0] hover:bg-[#FFE2A0]/5 transition-all duration-300 cursor-pointer group w-full text-left"
+                  >
+                    <img src={locBtn} width="16" className="opacity-70 group-hover:opacity-100" alt="directions" />
+                    <span>Get Directions</span>
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* ── Custom Tab Panel ─────────────────────────────────────────── */}
+            {activeTab === 'custom' && customTabLabel && (
+              <div className="pb-6">
+                {(() => {
+                  const grouped = tabItems.reduce<Record<string, typeof tabItems>>((acc, item) => {
+                    const cat = item.category || 'General';
+                    if (!acc[cat]) acc[cat] = [];
+                    acc[cat].push(item);
+                    return acc;
+                  }, {});
+                  return Object.entries(grouped).map(([category, items]) => (
+                    <div key={category} className="mb-5">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-[#FFE2A0]/60 mb-2">{category}</p>
+                      <div className="flex flex-col">
+                        {items.map((item) => (
+                          <div
+                            key={item.id}
+                            className="flex items-center justify-between py-2.5"
+                            style={{ borderBottom: '0.5px solid rgba(255,255,255,0.05)' }}
+                          >
+                            <span className="text-sm text-[rgba(255,255,255,0.7)]">{item.name}</span>
+                            <span className="text-sm font-semibold text-[#FFE2A0] ml-4 shrink-0">
+                              ₱{Number(item.price).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ));
+                })()}
               </div>
             )}
 
-            {/* Review Form / Button */}
-            <div className="mt-8">
-              {reviewError && <p className="text-red-400 text-sm mb-3">{reviewError}</p>}
-              {isAddingReview ? (
-                <ReviewForm
-                  onSubmit={handleAddReview}
-                  onCancel={() => { setIsAddingReview(false); setReviewError(null); }}
-                  submitting={submitting}
-                />
-              ) : (
-                <div className="flex justify-end">
-                  <button
-                    onClick={() => setIsAddingReview(true)}
-                    className="flex items-center gap-2 bg-[#FFE2A0] text-[#373737] px-4 py-2 rounded-lg text-xs hover:brightness-110 transition-all active:scale-95 shadow-lg cursor-pointer"
-                  >
-                    <span><img src={commentIcon} alt="comment" /></span> Leave a review
-                  </button>
+            {/* ── Reviews Panel ────────────────────────────────────────────── */}
+            {activeTab === 'reviews' && (
+              <>
+                <div className="py-4">
+                  <p className="text-xs text-zinc-400 mb-1">Customer Reviews ({reviewsCount})</p>
+                  <div className="flex flex-col">
+                    <span className="text-5xl font-serif text-[#FBFAF8]">
+                      {reviewsCount > 0 ? rating.toFixed(1) : '—'}
+                    </span>
+                    <div className="flex gap-1 mt-2">
+                      {[...Array(5)].map((_, i) => (
+                        <img key={i} src={starIcon} width="9" alt="star"
+                          className={i < Math.floor(rating) ? 'opacity-100' : 'opacity-30'} />
+                      ))}
+                    </div>
+                  </div>
                 </div>
-              )}
-            </div>
+
+                {reviewsLoading ? (
+                  <p className="text-sm text-zinc-500 animate-pulse">Loading reviews...</p>
+                ) : reviews.length === 0 ? (
+                  <p className="text-sm text-zinc-500">No reviews yet. Be the first!</p>
+                ) : (
+                  <div className="space-y-12 mt-4">
+                    {reviews.map((review) => (
+                      <ReviewItem key={review.id} {...review} />
+                    ))}
+                  </div>
+                )}
+
+                <div className="mt-8">
+                  {reviewError && <p className="text-red-400 text-sm mb-3">{reviewError}</p>}
+                  {isAddingReview ? (
+                    <ReviewForm
+                      onSubmit={handleAddReview}
+                      onCancel={() => { setIsAddingReview(false); setReviewError(null); }}
+                      submitting={submitting}
+                    />
+                  ) : (
+                    <div className="flex justify-end">
+                      <button
+                        onClick={() => setIsAddingReview(true)}
+                        className="flex items-center gap-2 bg-[#FFE2A0] text-[#373737] px-4 py-2 rounded-lg text-xs hover:brightness-110 transition-all active:scale-95 shadow-lg cursor-pointer"
+                      >
+                        <span><img src={commentIcon} alt="comment" /></span> Leave a review
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>

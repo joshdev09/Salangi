@@ -25,6 +25,7 @@ const MyBusiness = () => {
 
     const [deletingId, setDeletingId] = useState<number | null>(null);
     const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+    const [savedToast, setSavedToast] = useState(false);
 
     // ─── Fetch user's listings ────────────────────────────────────────────────
     const fetchListings = async () => {
@@ -102,6 +103,8 @@ const MyBusiness = () => {
                     l.id === editingListing.id ? { ...l, ...updatedListing } : l
                 )
             );
+            setSavedToast(true);
+            setTimeout(() => setSavedToast(false), 3000);
         }
 
         setIsEditModalOpen(false);
@@ -286,6 +289,16 @@ const MyBusiness = () => {
                     </div>
                 )}
             </div>
+
+            {/* ── Save Toast ───────────────────────────────────────────────── */}
+            {savedToast && (
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-3 bg-[#1e1e1e] border border-[#FFE2A0]/30 text-white px-5 py-3 rounded-xl shadow-2xl">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-[#FFE2A0] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span className="text-sm font-medium">Changes saved successfully</span>
+                </div>
+            )}
 
             <EditListingModal
                 isOpen={isEditModalOpen}

@@ -405,13 +405,16 @@ function Locationpage() {
         className={`
           absolute z-30
           bottom-0 left-0 right-0 h-[60vh] rounded-t-2xl
-          md:top-0 md:bottom-0 md:left-0 md:right-auto md:h-full md:w-500px md:rounded-none
+          md:top-0 md:bottom-0 md:left-0 md:right-auto md:h-full md:rounded-none
           bg-[#1A1A1A] border-t border-zinc-800 md:border-t-0 md:border-r
           overflow-hidden flex flex-col
           ${!sidebarOpen ? 'md:hidden' : ''}
         `}
         style={{
           willChange: 'transform',
+          minWidth: 'min(500px, 100%)',
+          width: 'min(500px, 100%)',
+          maxWidth: '500px',
           transform: sidebarOpen
             ? `translateY(${dragOffset}px)`
             : 'translateY(100%)',

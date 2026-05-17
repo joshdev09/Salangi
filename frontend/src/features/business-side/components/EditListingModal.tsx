@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import type { Listing } from "../../Data/Listings";
-import { X } from "lucide-react";
+import { X, Plus, Trash2 } from "lucide-react";
+import { supabase } from '../../../lib/supabase';
 import phoneIcon from '@assets/icons/phone-icon.svg';
 import emailIcon from '@assets/icons/emain-icon.svg';
 import fbIcon from '@assets/icons/fb-icon.svg';
@@ -20,6 +21,19 @@ L.Icon.Default.mergeOptions({
 });
 
 const OPERATING_DAYS = ['Daily', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+// ── Custom Tab ────────────────────────────────────────────────────────────────
+
+const TAB_LABEL_OPTIONS = ['None', 'Menu', 'Services', 'Rates', 'Packages'] as const;
+type TabLabelValue = 'menu' | 'services' | 'rates' | 'packages';
+
+interface TabItem {
+  id?: number;
+  category: string;
+  name: string;
+  price: string; // string so the input stays controlled
+  sort_order: number;
+}
 
 const parseTimeOutput = (timeStr: string) => {
   if (!timeStr) return '';
@@ -139,6 +153,12 @@ export default function EditListingModal({ isOpen, onClose, onSave, listing }: E
   const [geocoding, setGeocoding] = useState(false);
   const geocodeTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // ── Custom Tab state ────────────────────────────────────────────────────────
+  const [tabLabel, setTabLabel] = useState<string>('None');
+  const [tabEnabled, setTabEnabled] = useState(false);
+  const [tabItems, setTabItems] = useState<TabItem[]>([]);
+  const [tabLoading, setTabLoading] = useState(false);
+
   const inputBaseLine = "w-full bg-[#2a2a2a] border border-[#333333] text-[#e0e0e0] rounded-lg px-4 py-2.5 text-sm focus:border-[#FFE2A0] focus:ring-1 focus:ring-[#FFE2A0]/20 outline-none transition-all duration-200";
 
   // ── Pre-fill form from existing listing ────────────────────────────────────
@@ -203,7 +223,49 @@ export default function EditListingModal({ isOpen, onClose, onSave, listing }: E
     });
   }, [listing, isOpen]);
 
-  // ── Geocode when city/barangay/street changes ──────────────────────────────
+  // ── Fetch existing tab data when modal opens ────────────────────────────────
+  useEffect(() => {
+    if (!isOpen || !listing?.id) return;
+
+    const fetchTabData = async () => {
+      setTabLoading(true);
+
+      const { data: tabRow } = await supabase
+        .from('listing_tabs')
+        .select('*')
+        .eq('listing_id', listing.id)
+        .maybeSingle();
+
+      if (tabRow) {
+        const label = tabRow.tab_label.charAt(0).toUpperCase() + tabRow.tab_label.slice(1);
+        setTabLabel(label);
+        setTabEnabled(tabRow.is_enabled);
+      } else {
+        setTabLabel('None');
+        setTabEnabled(false);
+      }
+
+      const { data: items } = await supabase
+        .from('listing_tab_items')
+        .select('*')
+        .eq('listing_id', listing.id)
+        .order('sort_order');
+
+      setTabItems(
+        (items ?? []).map((item: any) => ({
+          id: item.id,
+          category: item.category,
+          name: item.name,
+          price: String(item.price),
+          sort_order: item.sort_order,
+        }))
+      );
+
+      setTabLoading(false);
+    };
+
+    fetchTabData();
+  }, [isOpen, listing?.id]);
   useEffect(() => {
     if (!form.city) return;
     if (geocodeTimeout.current) clearTimeout(geocodeTimeout.current);
@@ -233,7 +295,7 @@ export default function EditListingModal({ isOpen, onClose, onSave, listing }: E
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const formattedHours = `${form.operatingDays.join(', ')}, ${formatTimeInput(form.openingTime)} – ${formatTimeInput(form.closingTime)}`;
@@ -246,6 +308,46 @@ export default function EditListingModal({ isOpen, onClose, onSave, listing }: E
       form.otherDetails ? `(${form.otherDetails})` : '',
     ].filter(Boolean).join(', ');
 
+    // ── Save tab data ─────────────────────────────────────────────────────────
+    if (listing?.id) {
+      const isActive = tabLabel !== 'None' && tabEnabled;
+      const labelValue = tabLabel.toLowerCase() as TabLabelValue;
+
+      if (tabLabel !== 'None') {
+        await supabase
+          .from('listing_tabs')
+          .upsert(
+            { listing_id: listing.id, tab_label: labelValue, is_enabled: isActive },
+            { onConflict: 'listing_id' }
+          );
+
+        // Replace all items: delete then insert
+        await supabase.from('listing_tab_items').delete().eq('listing_id', listing.id);
+
+        const rows = tabItems
+          .filter(item => item.name.trim())
+          .map((item, i) => ({
+            listing_id: listing.id,
+            category: item.category.trim() || 'General',
+            name: item.name.trim(),
+            price: parseFloat(item.price) || 0,
+            sort_order: i,
+          }));
+
+        if (rows.length > 0) {
+          await supabase.from('listing_tab_items').insert(rows);
+        }
+      } else {
+        // Label set to None — disable the tab
+        await supabase
+          .from('listing_tabs')
+          .upsert(
+            { listing_id: listing.id, tab_label: 'menu', is_enabled: false },
+            { onConflict: 'listing_id' }
+          );
+      }
+    }
+
     onSave({
       ...listing,
       ...form,
@@ -256,8 +358,8 @@ export default function EditListingModal({ isOpen, onClose, onSave, listing }: E
         lng: form.lng ?? listing?.coordinates?.lng ?? 0,
       },
       phone: form.phone ? `+63${form.phone}` : '',
-      } as Listing);
-    };
+    } as Listing);
+  };
 
   if (!isOpen) return null;
 
@@ -480,6 +582,110 @@ export default function EditListingModal({ isOpen, onClose, onSave, listing }: E
               </div>
             </div>
           </form>
+
+            {/* ── Custom Tab Section ─────────────────────────────────────────── */}
+            <div className="pt-6 border-t border-zinc-800 mt-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-xs font-bold text-[#FFE2A0] uppercase tracking-wider">Custom Tab</h3>
+                  <p className="text-xs text-zinc-500 mt-0.5">Add a Menu, Services, Rates, or Packages tab to your listing card</p>
+                </div>
+                {tabLabel !== 'None' && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-zinc-400">{tabEnabled ? 'Enabled' : 'Disabled'}</span>
+                    <button
+                      type="button"
+                      onClick={() => setTabEnabled(prev => !prev)}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${tabEnabled ? 'bg-[#FFE2A0]' : 'bg-zinc-700'}`}
+                    >
+                      <span className={`inline-block h-4 w-4 transform rounded-full bg-[#1a1a1a] transition-transform ${tabEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {tabLoading ? (
+                <p className="text-xs text-zinc-500 animate-pulse">Loading tab data...</p>
+              ) : (
+                <>
+                  {/* Label picker */}
+                  <div className="flex flex-wrap gap-2 mb-5">
+                    {TAB_LABEL_OPTIONS.map(label => (
+                      <button
+                        key={label}
+                        type="button"
+                        onClick={() => {
+                          setTabLabel(label);
+                          if (label === 'None') setTabEnabled(false);
+                          else setTabEnabled(true);
+                        }}
+                        className={`px-4 py-2 rounded-lg text-xs font-medium transition-all border ${
+                          tabLabel === label
+                            ? 'bg-[#FFE2A0] text-[#1A1A1A] border-[#FFE2A0]'
+                            : 'bg-[#2D2D2D] text-[#FBFAF8]/70 border-transparent hover:border-[#FFE2A0]/40'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Items list — only shown when a label is selected */}
+                  {tabLabel !== 'None' && (
+                    <div className="space-y-3">
+                      {/* Column headers */}
+                      <div className="grid grid-cols-[1fr_1fr_6rem_2rem] gap-2 px-1">
+                        <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Category</span>
+                        <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Item Name</span>
+                        <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Price (₱)</span>
+                        <span />
+                      </div>
+
+                      {tabItems.map((item, i) => (
+                        <div key={i} className="grid grid-cols-[1fr_1fr_6rem_2rem] gap-2 items-center">
+                          <input
+                            value={item.category}
+                            onChange={e => setTabItems(prev => prev.map((it, idx) => idx === i ? { ...it, category: e.target.value } : it))}
+                            placeholder="e.g. Drinks"
+                            className={inputBaseLine}
+                          />
+                          <input
+                            value={item.name}
+                            onChange={e => setTabItems(prev => prev.map((it, idx) => idx === i ? { ...it, name: e.target.value } : it))}
+                            placeholder="Item name"
+                            className={inputBaseLine}
+                          />
+                          <input
+                            value={item.price}
+                            onChange={e => setTabItems(prev => prev.map((it, idx) => idx === i ? { ...it, price: e.target.value } : it))}
+                            placeholder="0.00"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            className={inputBaseLine}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setTabItems(prev => prev.filter((_, idx) => idx !== i))}
+                            className="p-1.5 text-zinc-500 hover:text-red-400 transition-colors"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      ))}
+
+                      <button
+                        type="button"
+                        onClick={() => setTabItems(prev => [...prev, { category: '', name: '', price: '', sort_order: prev.length }])}
+                        className="flex items-center gap-2 text-xs text-[#FFE2A0]/70 hover:text-[#FFE2A0] transition-colors mt-1"
+                      >
+                        <Plus size={14} /> Add item
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
         </div>
 
         {/* Footer */}
