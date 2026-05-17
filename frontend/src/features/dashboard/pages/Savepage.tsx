@@ -10,9 +10,11 @@ import type { FilterOptions } from '../components/SearchBar';
 
 import { getListings, getAverageRatings, CATEGORIES } from '../../Data/Listings';
 import type { Listing, Category } from '../../Data/Listings';
+import LoginPromptModal from '@/components/LoginPromptModal';
 
 function Savepage() {
   const { session } = useAuth();
+  const [showLoginPrompt, setShowLoginPrompt] = useState(!session);
   const [listings, setListings]       = useState<Listing[]>([]);
   const [isLoading, setIsLoading]     = useState(true);
   const [activeCategory, setActiveCategory] = useState<Category>(CATEGORIES.ALL as Category);
@@ -87,7 +89,30 @@ function Savepage() {
 
   return (
     <div className="flex h-screen w-full bg-[#1A1A1A] text-[#F8FAF8] overflow-hidden font-sans">
-      <main className="flex-1 relative flex flex-col overflow-hidden px-4 md:px-10 pt-6 md:pt-10">
+      {/* Guest wall — shown when not logged in */}
+      {!session && (
+        <>
+          <LoginPromptModal
+            isOpen={showLoginPrompt}
+            onClose={() => setShowLoginPrompt(false)}
+            featureName="save"
+          />
+          {!showLoginPrompt && (
+            <div className="flex-1 flex flex-col items-center justify-center gap-4 opacity-60">
+              <div className="text-5xl">🔖</div>
+              <p className="text-lg font-semibold">Sign in to see your saved spots</p>
+              <button
+                onClick={() => setShowLoginPrompt(true)}
+                className="mt-2 px-6 py-2 bg-[#FFE2A0] text-[#1A1A1A] font-bold rounded-xl text-sm hover:brightness-110 transition-all cursor-pointer"
+              >
+                Sign In
+              </button>
+            </div>
+          )}
+        </>
+      )}
+      {session && (
+        <main className="flex-1 relative flex flex-col overflow-hidden px-4 md:px-10 pt-6 md:pt-10">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 md:mb-8 z-10 gap-4 w-full shrink-0">
           <CategoryFilters
             activeCategory={activeCategory}
@@ -136,6 +161,7 @@ function Savepage() {
           )}
         </div>
       </main>
+      )}
     </div>
   );
 }

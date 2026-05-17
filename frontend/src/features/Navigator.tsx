@@ -6,6 +6,8 @@ import SettingsPage from './settings/pages/SettingsPage';
 import { ROUTES } from '../routes/paths';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/authContext';
+import { useGuestGuard } from '@/hooks/useGuestGuard';
+import LoginPromptModal from '@/components/LoginPromptModal';
 
 // icons
 import homeBtn from '@assets/icons/home-btn-default.svg';
@@ -26,10 +28,26 @@ interface NavItemProps {
   activeIcon: string;
   alt: string;
   isEnd?: boolean;
+  onGuestClick?: () => void;
 }
 
-const NavItem = ({ to, defaultIcon, activeIcon, alt, isEnd = false }: NavItemProps) => {
+const NavItem = ({ to, defaultIcon, activeIcon, alt, isEnd = false, onGuestClick }: NavItemProps) => {
   const [isHovered, setIsHovered] = useState(false);
+
+  if (onGuestClick) {
+    return (
+      <div
+        onClick={onGuestClick}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        className={`flex items-center justify-center transition-all duration-200 border w-12 h-12 md:w-14 md:h-14 rounded-xl cursor-pointer ${
+          isHovered ? 'bg-[#222222] border-[#FFE2A0]' : 'bg-transparent border-transparent'
+        }`}
+      >
+        <img src={isHovered ? activeIcon : defaultIcon} alt={alt} className="w-6 h-6 object-contain" />
+      </div>
+    );
+  }
 
   return (
     <NavLink to={to} end={isEnd}>
@@ -61,6 +79,7 @@ export function Navigator() {
   const navigate = useNavigate();
   const location = useLocation();
   const { session } = useAuth();
+  const { guardAction, loginPromptProps } = useGuestGuard();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [scrollTo, setScrollTo] = useState<'upgrade' | null>(null);
@@ -190,6 +209,7 @@ export function Navigator() {
             defaultIcon={saveBtn}
             activeIcon={saveBtnSelected}
             alt="Save"
+            onGuestClick={!session ? () => guardAction('save', () => {}) : undefined}
           />
           <NavItem
             to={ROUTES.EVENTS_PAGE}
@@ -200,6 +220,16 @@ export function Navigator() {
         </div>
 
         <div className="relative pr-4 md:pr-0 hidden md:block">
+          {!session ? (
+            <button
+              onClick={() => navigate(ROUTES.SIGN_IN)}
+              className="h-11 w-11 md:h-14 md:w-14 bg-[#FFE2A0]/10 border border-[#FFE2A0]/30 hover:bg-[#FFE2A0]/20 rounded-lg cursor-pointer flex items-center justify-center transition-all"
+              title="Sign In"
+            >
+              <span className="text-[#FFE2A0] text-xs font-bold">Login</span>
+            </button>
+          ) : (
+          <>
           {isMenuOpen && (
             <div
               ref={menuRef}
@@ -240,6 +270,8 @@ export function Navigator() {
           )}
 
           <AvatarButton onClick={() => setIsMenuOpen(!isMenuOpen)} />
+          </>
+          )}
         </div>
       </div>
 
@@ -254,6 +286,8 @@ export function Navigator() {
         />,
         document.body
       )}
+
+      <LoginPromptModal {...loginPromptProps} />
     </div>
   );
 }

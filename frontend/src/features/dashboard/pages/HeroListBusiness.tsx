@@ -5,10 +5,6 @@ const HeroListBusiness = () => {
 
     const navigate = useNavigate();
 
-    const handleSomeClick = () => {
-        navigate('/some-path');
-    };
-
     return (
         <div className="relative bg-[#1A1A1A] min-h-screen overflow-hidden flex flex-col items-center">
             

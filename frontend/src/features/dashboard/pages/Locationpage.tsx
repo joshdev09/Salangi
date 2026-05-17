@@ -12,6 +12,8 @@ import type { Listing } from '../../Data/Listings';
 import { getListings, getAverageRatings } from '../../Data/Listings';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/authContext';
+import { useGuestGuard } from '@/hooks/useGuestGuard';
+import LoginPromptModal from '@/components/LoginPromptModal';
 
 interface Review {
   id: number;
@@ -41,6 +43,7 @@ function Locationpage() {
   const { state } = useLocation();
   const navigate = useNavigate();
   const { session } = useAuth();
+  const { guardAction, loginPromptProps } = useGuestGuard();
   const incomingListing: Listing | undefined = state?.listing;
 
   const [listings, setListings] = useState<Listing[]>([]);
@@ -180,20 +183,22 @@ function Locationpage() {
   };
 
   const toggleSave = async (id: number) => {
-    try {
-      const user = session?.user;
-      if (!user) return;
-      const isSaved = savedIds.includes(id);
-      if (isSaved) {
-        await supabase.from('saves').delete().eq('user_id', user.id).eq('listing_id', id);
-        setSavedIds(prev => prev.filter(sid => sid !== id));
-      } else {
-        await supabase.from('saves').insert({ user_id: user.id, listing_id: id });
-        setSavedIds(prev => [...prev, id]);
+    guardAction('save', async () => {
+      try {
+        const user = session?.user;
+        if (!user) return;
+        const isSaved = savedIds.includes(id);
+        if (isSaved) {
+          await supabase.from('saves').delete().eq('user_id', user.id).eq('listing_id', id);
+          setSavedIds(prev => prev.filter(sid => sid !== id));
+        } else {
+          await supabase.from('saves').insert({ user_id: user.id, listing_id: id });
+          setSavedIds(prev => [...prev, id]);
+        }
+      } catch (error) {
+        console.warn("Error toggling save:", error);
       }
-    } catch (error) {
-      console.warn("Error toggling save:", error);
-    }
+    });
   };
 
   const averageRating = reviews.length > 0
@@ -481,6 +486,7 @@ function Locationpage() {
         </div>
       </div>
 
+      <LoginPromptModal {...loginPromptProps} />
     </div>
   );
 }

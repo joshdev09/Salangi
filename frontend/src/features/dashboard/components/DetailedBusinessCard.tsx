@@ -18,6 +18,8 @@ import commentIcon from '@assets/icons/review-btn-default.svg';
 
 import ReviewItem from './ReviewItem';
 import ReviewForm from './ReviewForm';
+import { useGuestGuard } from '@/hooks/useGuestGuard';
+import LoginPromptModal from '@/components/LoginPromptModal';
 
 interface Review {
   id: number;
@@ -185,6 +187,7 @@ function DetailedBusinessCard({
   onReviewAdded,
 }: DetailedBusinessCardProps) {
   const { session } = useAuth();
+  const { guardAction, loginPromptProps } = useGuestGuard();
   const [isSaved, setIsSaved] = useState(initialSaved);
   const allImages = dedupeImages(images);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -257,23 +260,25 @@ function DetailedBusinessCard({
 
   const handleToggleSave = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (onToggleSave) {
-      onToggleSave(listingId);
-      setIsSaved(prev => !prev);
-    } else {
-      try {
-        const user = session?.user;
-        if (!user) return;
-        if (isSaved) {
-          await supabase.from('saves').delete().eq('user_id', user.id).eq('listing_id', listingId);
-        } else {
-          await supabase.from('saves').insert({ user_id: user.id, listing_id: listingId });
-        }
+    guardAction('save', async () => {
+      if (onToggleSave) {
+        onToggleSave(listingId);
         setIsSaved(prev => !prev);
-      } catch (error) {
-        console.warn("Error toggling save:", error);
+      } else {
+        try {
+          const user = session?.user;
+          if (!user) return;
+          if (isSaved) {
+            await supabase.from('saves').delete().eq('user_id', user.id).eq('listing_id', listingId);
+          } else {
+            await supabase.from('saves').insert({ user_id: user.id, listing_id: listingId });
+          }
+          setIsSaved(prev => !prev);
+        } catch (error) {
+          console.warn("Error toggling save:", error);
+        }
       }
-    }
+    });
   };
 
   const handleGetDirections = async () => {
@@ -588,7 +593,7 @@ function DetailedBusinessCard({
                   ) : (
                     <div className="flex justify-end">
                       <button
-                        onClick={() => setIsAddingReview(true)}
+                        onClick={() => guardAction('review', () => setIsAddingReview(true))}
                         className="flex items-center gap-2 bg-[#FFE2A0] text-[#373737] px-4 py-2 rounded-lg text-xs hover:brightness-110 transition-all active:scale-95 shadow-lg cursor-pointer"
                       >
                         <span><img src={commentIcon} alt="comment" /></span> Leave a review
@@ -601,6 +606,7 @@ function DetailedBusinessCard({
           </div>
         </div>
       </div>
+      <LoginPromptModal {...loginPromptProps} />
     </>
   );
 }

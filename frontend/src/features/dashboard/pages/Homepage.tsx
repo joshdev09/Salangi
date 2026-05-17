@@ -3,6 +3,8 @@ import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { ROUTES } from '../../../routes/paths';
 import { useAuth } from '@/context/authContext';
+import { useGuestGuard } from '@/hooks/useGuestGuard';
+import LoginPromptModal from '@/components/LoginPromptModal';
 import BusinessCard from '../components/BusinessCard';
 import MapView from '../../../map/MapView';
 import SearchBar from '../components/SearchBar';
@@ -19,6 +21,7 @@ function Homepage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { role, session } = useAuth();
+  const { guardAction, loginPromptProps } = useGuestGuard();
 
   // ── Added: read ?listingId= from the shared URL ──
   const [searchParams, setSearchParams] = useSearchParams();
@@ -44,15 +47,18 @@ function Homepage() {
 
   // ── Smart redirect: go to dashboard if user already has a listing ──
   const handleListBusinessClick = async () => {
+    // If guest, show login prompt instead of navigating to the hero page
+    if (!session) {
+      guardAction('list-business', () => {});
+      return;
+    }
     setIsRedirecting(true);
     try {
-      // Use getSession() instead of getUser() — getSession() uses the locally
-      // cached token and silently refreshes it if needed, whereas getUser()
-      // makes a live server call with a potentially stale token after idle.
       const { data: { session: currentSession } } = await supabase.auth.getSession();
       const user = currentSession?.user ?? null;
       if (!user) {
-        navigate(ROUTES.LIST_YOUR_BUSINESS);
+        guardAction('list-business', () => {});
+        setIsRedirecting(false);
         return;
       }
 
@@ -154,20 +160,22 @@ function Homepage() {
   }, [session]);
 
   const toggleSave = async (id: number) => {
-    try {
-      const user = session?.user;
-      if (!user) return;
-      const isSaved = savedIds.includes(id);
-      if (isSaved) {
-        await supabase.from('saves').delete().eq('user_id', user.id).eq('listing_id', id);
-        setSavedIds(prev => prev.filter(savedId => savedId !== id));
-      } else {
-        await supabase.from('saves').insert({ user_id: user.id, listing_id: id });
-        setSavedIds(prev => [...prev, id]);
+    guardAction('save', async () => {
+      try {
+        const user = session?.user;
+        if (!user) return;
+        const isSaved = savedIds.includes(id);
+        if (isSaved) {
+          await supabase.from('saves').delete().eq('user_id', user.id).eq('listing_id', id);
+          setSavedIds(prev => prev.filter(savedId => savedId !== id));
+        } else {
+          await supabase.from('saves').insert({ user_id: user.id, listing_id: id });
+          setSavedIds(prev => [...prev, id]);
+        }
+      } catch (error) {
+        console.warn("Error toggling save:", error);
       }
-    } catch (error) {
-      console.warn("Error toggling save:", error);
-    }
+    });
   };
 
   const filteredListings = useMemo<Listing[]>(() => {
@@ -407,6 +415,7 @@ function Homepage() {
         <SettingsPage onClose={() => setIsSettingsOpen(false)} />,
         document.body
       )}
+      <LoginPromptModal {...loginPromptProps} />
     </div>
   );
 }

@@ -137,14 +137,10 @@ function AppRoutes() {
         <Route path={ROUTES.DASHBOARD_REL.SETTINGS}     element={<Settings />}    />
       </Route>
 
-      {/* Main Application Layout */}
+      {/* Main Application Layout — accessible to guests */}
       <Route
         path="/"
-        element={
-          <ProtectedRoute session={session} role={role} redirectPath={ROUTES.SIGN_IN}>
-            <Navigator />
-          </ProtectedRoute>
-        }
+        element={<Navigator />}
       >
         <Route index element={<Navigate to={ROUTES.HOME} replace />} />
         <Route path={ROUTES.HOME}        element={<Homepage />}      />
@@ -155,7 +151,7 @@ function AppRoutes() {
         <Route path="/listing/:slug"     element={<ListingSlugRedirect />} />
       </Route>
 
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<Navigate to={ROUTES.HOME} replace />} />
     </Routes>
   );
 }
