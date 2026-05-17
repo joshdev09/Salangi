@@ -23,8 +23,18 @@ const ChangePasswordModal = ({ isOpen, onClose }: ChangePasswordModalProps) => {
             setError("New passwords do not match");
             return;
         }
-        if (passwords.new.length < 6) {
-            setError("Password must be at least 6 characters");
+        const validatePassword = (pw: string): string => {
+            if (pw.length < 8)            return 'Password must be at least 8 characters.';
+            if (!/[a-z]/.test(pw))        return 'Password must include at least one lowercase letter.';
+            if (!/[A-Z]/.test(pw))        return 'Password must include at least one uppercase letter.';
+            if (!/[0-9]/.test(pw))        return 'Password must include at least one number.';
+            if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?`~]/.test(pw))
+                                           return 'Password must include at least one special character.';
+            return '';
+        };
+        const pwError = validatePassword(passwords.new);
+        if (pwError) {
+            setError(pwError);
             return;
         }
 
@@ -97,7 +107,7 @@ const ChangePasswordModal = ({ isOpen, onClose }: ChangePasswordModalProps) => {
                                     type="password"
                                     value={passwords[field as keyof typeof passwords]}
                                     onChange={(e) => setPasswords({ ...passwords, [field]: e.target.value })}
-                                    placeholder={field === "new" ? "Min. 6 characters" : field === "confirm" ? "Repeat new password" : "Enter current password"}
+                                    placeholder={field === "new" ? "Min. 8 characters" : field === "confirm" ? "Repeat new password" : "Enter current password"}
                                     className="w-full bg-[#3a3a3a] border border-[#4d4d4d] rounded-xl px-4 py-3 text-white focus:border-[#FFE2A0] transition-all outline-none"
                                 />
                             </div>

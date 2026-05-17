@@ -232,6 +232,17 @@ const SettingsPage = ({ onClose, scrollTo }: SettingsPageProps) => {
     }
   };
 
+  // ── Password validation (must match sign-up requirements) ──────────────────
+  const validatePassword = (pw: string): string => {
+    if (pw.length < 8)            return 'Password must be at least 8 characters.';
+    if (!/[a-z]/.test(pw))        return 'Password must include at least one lowercase letter.';
+    if (!/[A-Z]/.test(pw))        return 'Password must include at least one uppercase letter.';
+    if (!/[0-9]/.test(pw))        return 'Password must include at least one number.';
+    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?`~]/.test(pw))
+                                   return 'Password must include at least one special character.';
+    return '';
+  };
+
   // ── Change password ────────────────────────────────────────────────────────
   const handleChangePassword = async () => {
     if (!newPassword || !confirmPassword) {
@@ -240,8 +251,9 @@ const SettingsPage = ({ onClose, scrollTo }: SettingsPageProps) => {
     if (newPassword !== confirmPassword) {
       showToast('Passwords do not match.', 'error'); return;
     }
-    if (newPassword.length < 6) {
-      showToast('Password must be at least 6 characters.', 'error'); return;
+    const pwError = validatePassword(newPassword);
+    if (pwError) {
+      showToast(pwError, 'error'); return;
     }
     setChangingPw(true);
     try {
@@ -396,7 +408,7 @@ const SettingsPage = ({ onClose, scrollTo }: SettingsPageProps) => {
                 <SectionTitle>Password &amp; Security</SectionTitle>
                 <InputField
                   label="New Password" type={showNewPw ? 'text' : 'password'}
-                  value={newPassword} onChange={setNewPassword} placeholder="Min. 6 characters"
+                  value={newPassword} onChange={setNewPassword} placeholder="Min. 8 characters"
                   rightElement={
                     <button type="button" onClick={() => setShowNewPw(v => !v)} className="hover:text-zinc-300 transition-colors cursor-pointer">
                       {showNewPw ? <EyeOff size={14} /> : <Eye size={14} />}
