@@ -756,11 +756,11 @@ function DetailedBusinessCard({
                       >
                         <img src={photo.url} alt="visitor photo" className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors" />
-                        {/* Delete button — only for uploader */}
+                        {/* Delete button — always visible on touch, hover-only on desktop */}
                         {session?.user?.id === photo.user_id && (
                           <button
                             onClick={(e) => { e.stopPropagation(); handlePhotoDelete(photo); }}
-                            className="absolute top-1.5 right-1.5 p-1.5 bg-red-500/80 rounded-md opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                            className="absolute top-1.5 right-1.5 p-1.5 bg-red-500/80 rounded-md opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity cursor-pointer"
                           >
                             <Trash2 size={11} className="text-white" />
                           </button>
