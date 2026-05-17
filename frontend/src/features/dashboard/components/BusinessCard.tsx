@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase';
 import QRCode from 'qrcode';
 import salangiLogo from '@assets/png-files/salangi-logo.png';
 
+import OpenCloseBadge from '@/components/OpenCloseBadge';
 import locBtnSelected from '@assets/icons/map-btn-active.svg';
 import locBtn from '@assets/icons/map-btn-default.svg';
 import verified from '@assets/icons/verified-btn.svg';
@@ -495,6 +496,7 @@ function BusinessCard({
             <div className="flex items-center gap-2">
               <img src={time} width="14" alt="hours" className="opacity-70" />
               <span className="text-[#FBFAF8]/50 text-xs font-medium">{formatHours(listing.hours)}</span>
+              <OpenCloseBadge hours={listing.hours} />
             </div>
           </div>
 
