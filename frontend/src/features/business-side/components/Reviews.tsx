@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { IoChatbubbleEllipsesOutline } from "react-icons/io5";
 import { supabase } from "../../../lib/supabase";
+import SkeletonReviewCard from "../../dashboard/components/SkeletonReviewCard";
 import { BusinessFilterDropdown } from "./BusinessFilterDropdown";
 
 interface Review {
@@ -157,14 +158,42 @@ export default function Review() {
         <h2 className="text-[#FFE2A0] text-xl font-['Playfair_Display'] font-semibold">Overall Rating</h2>
       </div>
 
-      {loading ? (
-        <div className="flex items-center gap-3 text-[#a0a0a0] text-sm">
-          <svg className="animate-spin h-5 w-5 text-[#FFE2A0]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-          </svg>
-          Loading reviews...
-        </div>
+      {loading ? (  
+        <>
+          {/* Stat cards skeleton */}
+          <div className="flex flex-col lg:flex-row gap-4">
+            {/* Total Reviews */}
+            <div className="w-full flex-1 min-h-50 px-6 py-6 bg-[#3a3a3a] border border-[#4d4d4d] rounded-xl">
+              <div className="h-4 w-28 bg-[#2e2e2e] animate-pulse rounded mb-4" />
+              <div className="h-12 w-16 bg-[#2e2e2e] animate-pulse rounded mb-3" />
+              <div className="h-3 w-36 bg-[#2e2e2e] animate-pulse rounded" />
+            </div>
+            {/* Average Rating */}
+            <div className="w-full flex-1 min-h-50 px-6 py-6 bg-[#3a3a3a] border border-[#4d4d4d] rounded-xl">
+              <div className="h-4 w-32 bg-[#2e2e2e] animate-pulse rounded mb-4" />
+              <div className="flex items-center gap-3 mb-3">
+                <div className="h-12 w-12 bg-[#2e2e2e] animate-pulse rounded" />
+                <div className="h-7 w-32 bg-[#2e2e2e] animate-pulse rounded" />
+              </div>
+              <div className="h-3 w-40 bg-[#2e2e2e] animate-pulse rounded" />
+            </div>
+            {/* Star breakdown */}
+            <div className="w-full flex-1 min-h-50 px-6 py-6 bg-[#3a3a3a] border border-[#4d4d4d] rounded-xl flex flex-col justify-between">
+              {[0,1,2,3,4].map(i => (
+                <div key={i} className="flex items-center gap-3 w-full">
+                  <div className="h-3 w-8 bg-[#2e2e2e] animate-pulse rounded" />
+                  <div className="flex-1 h-2 bg-[#2e2e2e] animate-pulse rounded-full" />
+                  <div className="h-3 w-4 bg-[#2e2e2e] animate-pulse rounded" />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="w-full h-px my-5 bg-[#4b4b4b]" />
+
+          {/* Review rows skeleton */}
+          {[0,1,2,3,4].map(i => <SkeletonReviewCard key={i} />)}
+        </>
       ) : (
         <>
           <div className="flex flex-col lg:flex-row gap-4">

@@ -6,6 +6,7 @@ import { useAuth } from '@/context/authContext';
 import { useGuestGuard } from '@/hooks/useGuestGuard';
 import LoginPromptModal from '@/components/LoginPromptModal';
 import BusinessCard from '../components/BusinessCard';
+import SkeletonCard from '../components/SkeletonCard';              // ← new
 import MapView from '../../../map/MapView';
 import SearchBar from '../components/SearchBar';
 import type { FilterOptions } from '../components/SearchBar';
@@ -23,7 +24,6 @@ function Homepage() {
   const { role, session } = useAuth();
   const { guardAction, loginPromptProps } = useGuestGuard();
 
-  // ── Added: read ?listingId= from the shared URL ──
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [listings, setListings]               = useState<Listing[]>([]);
@@ -45,7 +45,6 @@ function Homepage() {
     navigate(ROUTES.SIGN_IN);
   };
 
-  // ── Smart redirect: go to dashboard if user already has a listing ──
   const handleListBusinessClick = async () => {
     // If guest, show login prompt instead of navigating to the hero page
     if (!session) {
@@ -84,7 +83,6 @@ function Homepage() {
     }
   };
 
-  // ── Load listings + ratings ──
   useEffect(() => {
     Promise.all([getListings(), getAverageRatings()])
       .then(([listingsData, ratingsData]) => {
@@ -95,7 +93,6 @@ function Homepage() {
       .finally(() => setIsLoading(false));
   }, []);
 
-  // ── Deep link handler: ?listingId= query param (legacy shared URLs) ──
   useEffect(() => {
     const listingId = searchParams.get('listingId');
     if (!listingId || !listings.length) return;
@@ -118,7 +115,6 @@ function Homepage() {
     }, { replace: true });
   }, [listings, searchParams, setSearchParams]);
 
-  // ── Deep link handler: /listing/:slug (clean URLs via ListingSlugRedirect) ──
   useEffect(() => {
     const autoSelectId = location.state?.autoSelectId;
     if (!autoSelectId || !listings.length) return;
@@ -135,11 +131,9 @@ function Homepage() {
       });
     }, 400);
 
-    // Clear the state so a refresh doesn't re-trigger the scroll
     window.history.replaceState({}, '', window.location.pathname);
   }, [listings, location.state]);
 
-  // ── Load saved listings ──
   useEffect(() => {
     const fetchSaves = async () => {
       try {
@@ -221,7 +215,6 @@ function Homepage() {
   return (
     <div className="relative w-full h-full bg-[#1A1A1A] text-[#FBFAF8] overflow-hidden">
 
-      {/* ── Redirect loading overlay ── */}
       {isRedirecting && createPortal(
         <div
           className="fixed inset-0 z-9999 flex flex-col items-center justify-center gap-6"
@@ -269,7 +262,6 @@ function Homepage() {
           </button>
         </div>
 
-        {/* Mobile Slide-Out Menu */}
         {isMobileMenuOpen && createPortal(
           <div className="fixed inset-0 z-9999 bg-[#1A1A1A] p-6 flex flex-col gap-8 md:hidden">
             <div className="flex justify-between items-center shrink-0">
@@ -299,20 +291,14 @@ function Homepage() {
               <div className="h-px w-full bg-[#373737]/50" />
 
               <button
-                onClick={() => {
-                  setIsMobileMenuOpen(false);
-                  handleListBusinessClick();
-                }}
+                onClick={() => { setIsMobileMenuOpen(false); handleListBusinessClick(); }}
                 className="flex items-center justify-center gap-2 px-4 py-3.5 bg-[#FFE2A0] text-[#1A1A1A] rounded-xl font-bold text-md w-full shadow-lg active:scale-95 transition-all cursor-pointer"
               >
                 List Your Business
               </button>
 
               <button
-                onClick={() => {
-                  setIsMobileMenuOpen(false);
-                  setIsSettingsOpen(true);
-                }}
+                onClick={() => { setIsMobileMenuOpen(false); setIsSettingsOpen(true); }}
                 className="flex items-center justify-center gap-3 px-4 py-3.5 bg-[#373737] text-[#FBFAF8] rounded-xl font-semibold text-md w-full shadow-lg active:scale-95 transition-all cursor-pointer"
               >
                 <Settings size={20} className="text-[#FFE2A0]" />
@@ -320,10 +306,7 @@ function Homepage() {
               </button>
 
               <button
-                onClick={() => {
-                  setIsMobileMenuOpen(false);
-                  handleLogout();
-                }}
+                onClick={() => { setIsMobileMenuOpen(false); handleLogout(); }}
                 className="flex items-center justify-center gap-3 px-4 py-3.5 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl font-semibold text-md w-full shadow-lg active:scale-95 transition-all cursor-pointer mt-auto"
               >
                 <LogOut size={20} className="opacity-90" />
@@ -352,9 +335,10 @@ function Homepage() {
 
           <div className="flex-none md:flex-1 md:overflow-y-auto flex flex-col gap-4 md:gap-6 pb-24 md:pb-10 pr-1 md:pr-2 pl-1 pt-1 no-scrollbar">
             {isLoading ? (
-              <div className="flex flex-col items-center justify-center py-20 text-center">
-                <p className="text-[#FBFAF8]/50 text-sm animate-pulse">Loading listings...</p>
-              </div>
+              // ↓ Skeleton cards — same gap/layout as the real list
+              Array.from({ length: 3 }).map((_, i) => (
+                <SkeletonCard key={i} />
+              ))
             ) : filteredListings.length > 0 ? (
               filteredListings.map((listing: Listing) => (
                 <BusinessCard
