@@ -4,6 +4,7 @@ import { useAuth } from '@/context/authContext';
 import search from '@assets/icons/search-btn-default.svg';
 
 import BusinessCard from '../components/BusinessCard';
+import SkeletonCard from '../components/SkeletonCard';
 import CategoryFilters from '../components/CategoryFilters';
 import SearchBar from '../components/SearchBar';
 import type { FilterOptions } from '../components/SearchBar';
@@ -40,9 +41,10 @@ function Savepage() {
         if (!savesResult.error && savesResult.data) {
           setSavedIds(savesResult.data.map((row: any) => row.listing_id));
         }
-        setIsLoading(false);
       } catch (error) {
         console.warn("Error fetching data:", error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -134,8 +136,10 @@ function Savepage() {
 
         <div className="flex-1 overflow-y-auto no-scrollbar z-10">
           {isLoading ? (
-            <div className="flex items-center justify-center h-full opacity-40">
-              <p className="text-sm animate-pulse">Loading saved spots...</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 pb-20 w-full">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <SkeletonCard key={i} />
+              ))}
             </div>
           ) : filteredSpots.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 pb-20 w-full">
