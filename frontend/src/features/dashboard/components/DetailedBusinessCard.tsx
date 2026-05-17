@@ -289,11 +289,19 @@ function DetailedBusinessCard({
   const isTextSafe = async (text: string): Promise<boolean> => {
     try {
       const timeout = new Promise<boolean>((resolve) => setTimeout(() => resolve(true), 3000));
-      const check = supabase.functions.invoke('moderate-text', { body: { text } })
-        .then(({ data, error }) => {
-          if (error) return true;
-          return data?.safe === true;
-        })
+      const check = fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/moderate-text`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({ text }),
+        }
+      )
+        .then(res => res.json())
+        .then(data => data?.safe === true)
         .catch(() => true);
       return await Promise.race([check, timeout]);
     } catch {
