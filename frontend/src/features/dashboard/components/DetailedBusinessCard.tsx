@@ -16,6 +16,7 @@ import websiteIcon from '@assets/icons/web-icon.svg';
 import starIcon from '@assets/icons/star-icon.svg';
 import commentIcon from '@assets/icons/review-btn-default.svg';
 
+import OpenCloseBadge from '@/components/OpenCloseBadge';
 import ReviewItem from './ReviewItem';
 import ReviewForm from './ReviewForm';
 import { useGuestGuard } from '@/hooks/useGuestGuard';
@@ -464,6 +465,7 @@ function DetailedBusinessCard({
                   <div className="flex items-center gap-2">
                     <img src={timeIcon} width="14" alt="hours" className="opacity-70" />
                     <span className="text-[#FBFAF8]/50 text-xs font-medium">{formatHours(hours)}</span>
+                    <OpenCloseBadge hours={hours} />
                   </div>
                 </div>
 
