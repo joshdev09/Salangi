@@ -633,8 +633,8 @@ export default function EditListingModal({ isOpen, onClose, onSave, listing }: E
                   {/* Items list — only shown when a label is selected */}
                   {tabLabel !== 'None' && (
                     <div className="space-y-3">
-                      {/* Column headers */}
-                      <div className="grid grid-cols-[1fr_1fr_6rem_2rem] gap-2 px-1">
+                      {/* Column headers — hidden on mobile, visible on sm+ */}
+                      <div className="hidden sm:grid grid-cols-[1fr_1fr_6rem_2rem] gap-2 px-1">
                         <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Category</span>
                         <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Item Name</span>
                         <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Price (₱)</span>
@@ -642,35 +642,46 @@ export default function EditListingModal({ isOpen, onClose, onSave, listing }: E
                       </div>
 
                       {tabItems.map((item, i) => (
-                        <div key={i} className="grid grid-cols-[1fr_1fr_6rem_2rem] gap-2 items-center">
-                          <input
-                            value={item.category}
-                            onChange={e => setTabItems(prev => prev.map((it, idx) => idx === i ? { ...it, category: e.target.value } : it))}
-                            placeholder="e.g. Drinks"
-                            className={inputBaseLine}
-                          />
-                          <input
-                            value={item.name}
-                            onChange={e => setTabItems(prev => prev.map((it, idx) => idx === i ? { ...it, name: e.target.value } : it))}
-                            placeholder="Item name"
-                            className={inputBaseLine}
-                          />
-                          <input
-                            value={item.price}
-                            onChange={e => setTabItems(prev => prev.map((it, idx) => idx === i ? { ...it, price: e.target.value } : it))}
-                            placeholder="0.00"
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            className={inputBaseLine}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setTabItems(prev => prev.filter((_, idx) => idx !== i))}
-                            className="p-1.5 text-zinc-500 hover:text-red-400 transition-colors"
-                          >
-                            <Trash2 size={14} />
-                          </button>
+                        <div key={i} className="flex flex-col sm:grid sm:grid-cols-[1fr_1fr_6rem_2rem] gap-2 sm:items-center bg-[#1e1e1e] sm:bg-transparent rounded-lg p-3 sm:p-0 border border-zinc-800 sm:border-0">
+                          <div className="flex flex-col gap-1 sm:contents">
+                            <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider sm:hidden">Category</label>
+                            <input
+                              value={item.category}
+                              onChange={e => setTabItems(prev => prev.map((it, idx) => idx === i ? { ...it, category: e.target.value } : it))}
+                              placeholder="e.g. Drinks"
+                              className={inputBaseLine}
+                            />
+                          </div>
+                          <div className="flex flex-col gap-1 sm:contents">
+                            <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider sm:hidden">Item Name</label>
+                            <input
+                              value={item.name}
+                              onChange={e => setTabItems(prev => prev.map((it, idx) => idx === i ? { ...it, name: e.target.value } : it))}
+                              placeholder="Item name"
+                              className={inputBaseLine}
+                            />
+                          </div>
+                          <div className="flex items-center gap-2 sm:contents">
+                            <div className="flex flex-col gap-1 flex-1 sm:contents">
+                              <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider sm:hidden">Price (₱)</label>
+                              <input
+                                value={item.price}
+                                onChange={e => setTabItems(prev => prev.map((it, idx) => idx === i ? { ...it, price: e.target.value } : it))}
+                                placeholder="0.00"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                className={inputBaseLine}
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setTabItems(prev => prev.filter((_, idx) => idx !== i))}
+                              className="p-1.5 text-zinc-500 hover:text-red-400 transition-colors shrink-0 sm:self-auto self-end"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
                         </div>
                       ))}
 

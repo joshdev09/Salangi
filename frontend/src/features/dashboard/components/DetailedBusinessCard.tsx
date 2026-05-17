@@ -425,7 +425,7 @@ function DetailedBusinessCard({
 
             {/* ── Tab Bar ──────────────────────────────────────────────────── */}
             <div className="flex gap-1 mb-5 border-b border-zinc-700/50">
-              {(['overview', ...(customTabLabel && tabItems.length > 0 ? ['custom'] : []), 'reviews'] as const).map((tab) => {
+              {(['overview', ...(customTabLabel ? ['custom'] : []), 'reviews'] as const).map((tab) => {
                 const label = tab === 'custom' ? customTabLabel! : tab.charAt(0).toUpperCase() + tab.slice(1);
                 const isActive = activeTab === tab;
                 return (
@@ -486,10 +486,10 @@ function DetailedBusinessCard({
                   {facebook && (
                     <div
                       onClick={() => window.open(facebook.startsWith('http') ? facebook : `https://${facebook}`, '_blank')}
-                      className="relative flex items-center gap-4 text-sm text-[#FBFAF8]/80 hover:text-[#FBFAF8] px-3 py-2.5 rounded-xl border border-transparent hover:border-[#FFE2A0] hover:bg-[#FFE2A0]/5 transition-all duration-300 cursor-pointer group"
+                      className="relative flex items-center gap-4 text-sm text-[#FBFAF8]/80 hover:text-[#FBFAF8] px-3 py-2.5 rounded-xl border border-transparent hover:border-[#FFE2A0] hover:bg-[#FFE2A0]/5 transition-all duration-300 cursor-pointer group min-w-0"
                     >
-                      <img src={facebookIcon} width="16" className="opacity-70 group-hover:opacity-100" alt="fb" />
-                      <span>{facebook}</span>
+                      <img src={facebookIcon} width="16" className="opacity-70 group-hover:opacity-100 shrink-0" alt="fb" />
+                      <span className="truncate">{facebook}</span>
                     </div>
                   )}
                   {website && (
@@ -515,7 +515,9 @@ function DetailedBusinessCard({
             {/* ── Custom Tab Panel ─────────────────────────────────────────── */}
             {activeTab === 'custom' && customTabLabel && (
               <div className="pb-6">
-                {(() => {
+                {tabItems.length === 0 ? (
+                  <p className="text-sm text-[#FBFAF8]/40 text-center py-8">No items added yet.</p>
+                ) : (() => {
                   const grouped = tabItems.reduce<Record<string, typeof tabItems>>((acc, item) => {
                     const cat = item.category || 'General';
                     if (!acc[cat]) acc[cat] = [];
