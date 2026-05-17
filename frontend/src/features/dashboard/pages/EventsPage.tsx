@@ -177,6 +177,7 @@ function Eventspage() {
           .from('events')
           .select('*, listings(name)')
           .or('verified.eq.true,status.eq.approved')
+          .is('deleted_at', null)  
           .order('created_at', { ascending: false });
 
         if (error) console.error('Supabase error:', error);
