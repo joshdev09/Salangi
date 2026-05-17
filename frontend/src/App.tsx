@@ -46,9 +46,35 @@ import AdminDashboard from './features/admin/pages/AdminDashboard'
 function AuthCallback() {
   const navigate = useNavigate()
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) navigate('/home-page')
-      else navigate('/sign-in')
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!session) { navigate("/sign-in"); return; }
+
+      // Ensure profiles row exists for Google OAuth new users
+      await supabase.from("profiles").upsert(
+        { id: session.user.id, role: "user" },
+        { onConflict: "id", ignoreDuplicates: true }
+      );
+
+      // Register session on backend so x-session-token is set in localStorage
+      // (required by update-profile and other protected endpoints)
+      try {
+        const apiUrl = import.meta.env.VITE_API_URL?.replace(/\/$/, "");
+        const res = await fetch(`${apiUrl}/api/auth/session-login`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          localStorage.setItem("session_token", data.session_token);
+        }
+      } catch (e) {
+        console.warn("Session registration failed:", e);
+      }
+
+      navigate("/home-page");
     })
   }, [navigate]);
   return <div className="min-h-screen bg-[#111111] flex items-center justify-center text-white">Loading...</div>

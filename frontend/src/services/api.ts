@@ -60,13 +60,34 @@ async function getToken(): Promise<string> {
 // -- Shared fetch helper -------------------------------------------------------
 export async function authFetch(path: string, options: RequestInit = {}): Promise<any> {
   const token = await getToken();
-  const sessionToken = localStorage.getItem('session_token');
+  let sessionToken = localStorage.getItem('session_token');
 
   if (!BASE_URL) {
     throw new Error('API URL is not configured. Please set VITE_API_URL in your .env file.');
   }
 
   const baseUrl = BASE_URL.endsWith('/') ? BASE_URL.slice(0, -1) : BASE_URL;
+
+  // If no session_token (e.g. Google OAuth users), register one automatically
+  if (!sessionToken) {
+    try {
+      const regRes = await fetch(`${baseUrl}/api/auth/session-login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (regRes.ok) {
+        const regData = await regRes.json();
+        sessionToken = regData.session_token;
+        localStorage.setItem('session_token', sessionToken!);
+      }
+    } catch (e) {
+      console.warn('Auto session registration failed:', e);
+    }
+  }
+
   const res = await fetch(`${baseUrl}${path}`, {
     ...options,
     headers: {
@@ -78,7 +99,9 @@ export async function authFetch(path: string, options: RequestInit = {}): Promis
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || `Request failed (${res.status})`);
+    const detail = err.detail;
+    const message = typeof detail === "string" ? detail : typeof detail === "object" && detail !== null ? JSON.stringify(detail) : `Request failed (${res.status})`;
+    throw new Error(message);
   }
   const text = await res.text();
   return text ? JSON.parse(text) : null;

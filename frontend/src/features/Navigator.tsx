@@ -133,11 +133,34 @@ export function Navigator() {
 
       if (error) console.warn('Error refreshing user profile:', error);
 
+      // Google OAuth puts name in full_name, not first_name/last_name
+      const meta = user.user_metadata ?? {};
+      const fullNameParts = (meta.full_name ?? '').trim().split(' ');
+      const metaFirst = meta.first_name || fullNameParts[0] || '';
+      const metaLast  = meta.last_name  || fullNameParts.slice(1).join(' ') || '';
+      const metaAvatar = (meta.avatar_url || meta.picture || null);
+      // Skip Google-hosted avatars — they rate-limit aggressively (429)
+      const safeAvatar = metaAvatar?.includes('googleusercontent.com') ? null : metaAvatar;
+
+      const firstName = profile?.first_name || metaFirst;
+      const lastName  = profile?.last_name  || metaLast;
+
+      // If no users row exists yet (Google OAuth new user), create one
+      if (!profile && (firstName || user.email)) {
+        await supabase.from('users').upsert({
+          user_id:     user.id,
+          first_name:  firstName,
+          last_name:   lastName,
+          email:       user.email,
+          profile_pic: safeAvatar,
+        }, { onConflict: 'user_id' });
+      }
+
       setDisplayName({
-        firstName: profile?.first_name || user.user_metadata?.first_name || '',
-        lastName:  profile?.last_name  || user.user_metadata?.last_name  || '',
-        email:     profile?.email      || user.email || '',
-        avatarUrl: profile?.profile_pic || null,
+        firstName,
+        lastName,
+        email:     profile?.email || user.email || '',
+        avatarUrl: profile?.profile_pic || safeAvatar,
       });
     } catch (error) {
       console.warn("Error refreshing user profile:", error);
@@ -169,7 +192,12 @@ export function Navigator() {
       className={`h-11 w-11 md:h-14 md:w-14 bg-[#2E2E2E] rounded-lg cursor-pointer flex items-center justify-center overflow-hidden transition-all hover:bg-[#222222] ${className}`}
     >
       {displayName.avatarUrl ? (
-        <img src={displayName.avatarUrl} alt="avatar" className="w-full h-full object-cover" />
+        <img
+          src={displayName.avatarUrl}
+          alt="avatar"
+          className="w-full h-full object-cover"
+          onError={() => setDisplayName(prev => ({ ...prev, avatarUrl: null }))}
+        />
       ) : (
         <p className="font-['Playfair-Display'] text-[#FFE2A0] text-xl">{initials}</p>
       )}
@@ -238,7 +266,12 @@ export function Navigator() {
               <div className="flex items-center gap-3 p-2 py-3">
                 <div className="h-8 w-8 rounded-full overflow-hidden bg-[#222222] flex items-center justify-center shrink-0">
                   {displayName.avatarUrl ? (
-                    <img src={displayName.avatarUrl} alt="avatar" className="w-full h-full object-cover" />
+                    <img
+                      src={displayName.avatarUrl}
+                      alt="avatar"
+                      className="w-full h-full object-cover"
+                      onError={() => setDisplayName(prev => ({ ...prev, avatarUrl: null }))}
+                    />
                   ) : (
                     <span className="text-[#FFE2A0] text-xs font-bold">{initials}</span>
                   )}

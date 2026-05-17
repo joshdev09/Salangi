@@ -76,7 +76,8 @@ const SettingsPage = ({ onClose, scrollTo }: SettingsPageProps) => {
   const [firstName,  setFirstName]  = useState<string>(storedUser.first_name ?? '');
   const [lastName,   setLastName]   = useState<string>(storedUser.last_name  ?? '');
   const [email,      setEmail]      = useState<string>(storedUser.email      ?? '');
-  const [avatarUrl,  setAvatarUrl]  = useState<string | null>(storedUser.profile_pic ?? storedUser.avatar_url ?? null);
+  const rawAvatar = storedUser.profile_pic ?? storedUser.avatar_url ?? null;
+  const [avatarUrl,  setAvatarUrl]  = useState<string | null>(rawAvatar?.includes('googleusercontent.com') ? null : rawAvatar);
 
   const currentRole = contextRole;
 
@@ -118,7 +119,8 @@ const SettingsPage = ({ onClose, scrollTo }: SettingsPageProps) => {
         setFirstName(userData.first_name ?? '');
         setLastName(userData.last_name ?? '');
         setEmail(userData.email ?? '');
-        setAvatarUrl(userData.profile_pic ?? null);
+        const dbAvatar = userData.profile_pic ?? null;
+        setAvatarUrl(dbAvatar?.includes('googleusercontent.com') ? null : dbAvatar);
 
         const current = getStoredUser();
         localStorage.setItem('user', JSON.stringify({
@@ -359,7 +361,7 @@ const SettingsPage = ({ onClose, scrollTo }: SettingsPageProps) => {
                   <div className="relative shrink-0">
                     <div className="w-16 h-16 rounded-full overflow-hidden bg-[#FFE2A0] flex items-center justify-center ring-2 ring-zinc-700 group-hover:ring-[#FFE2A0]/40 transition-all">
                       {avatarUrl
-                        ? <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
+                        ? <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" onError={() => setAvatarUrl(null)} />
                         : <User size={26} className="text-[#1A1A1A]" />
                       }
                     </div>
