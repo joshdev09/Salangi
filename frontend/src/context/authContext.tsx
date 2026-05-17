@@ -121,24 +121,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    // ── Listen for auth state changes ────────────────────────────────────────
+    // ── Listen for ALL auth state changes including token refresh ────────────
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setSession(session);
-      if (session?.user?.id) {
-        fetchRole(session.user.id);
-        if (_event === 'SIGNED_IN') startPolling();
-      } else {
+      // TOKEN_REFRESHED fires automatically when Supabase silently refreshes
+      // the access token — update our session state so ProtectedRoute always
+      // has a valid, non-expired token
+      if (
+        _event === 'SIGNED_IN' ||
+        _event === 'TOKEN_REFRESHED' ||
+        _event === 'USER_UPDATED'
+      ) {
+        setSession(session);
+        if (session?.user?.id) {
+          fetchRole(session.user.id);
+          if (_event === 'SIGNED_IN') startPolling();
+        }
+      } else if (_event === 'SIGNED_OUT') {
+        setSession(null);
         setRole(null);
         localStorage.removeItem('session_token');
         stopPolling();
       }
     });
 
+    // ── Refresh token when tab becomes visible again after being hidden ───────
+    // This covers the case where the device was asleep or the tab was in the
+    // background — the token may have expired while the JS event loop was paused
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible') {
+        const { data: { session } } = await supabase.auth.getSession();
+        // getSession() triggers a silent token refresh if the token is expired
+        // but the refresh token is still valid — so just sync state
+        setSession(session);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
       subscription.unsubscribe();
       stopPolling();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
 

@@ -46,7 +46,11 @@ function Homepage() {
   const handleListBusinessClick = async () => {
     setIsRedirecting(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      // Use getSession() instead of getUser() — getSession() uses the locally
+      // cached token and silently refreshes it if needed, whereas getUser()
+      // makes a live server call with a potentially stale token after idle.
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      const user = currentSession?.user ?? null;
       if (!user) {
         navigate(ROUTES.LIST_YOUR_BUSINESS);
         return;
