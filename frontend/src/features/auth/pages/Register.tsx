@@ -26,7 +26,7 @@ function Register() {
   const handleGoogleSignIn = async () => {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/home-page` },
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
     });
   };
 
