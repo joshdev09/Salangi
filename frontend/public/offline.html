@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Salangi — You're Offline</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #1A1A1A;
+      color: #FBFAF8;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      padding: 24px;
+      text-align: center;
+    }
+    img { width: 72px; height: 72px; object-fit: contain; opacity: 0.9; }
+    h1 { font-size: 1.25rem; font-weight: 700; color: #FFE2A0; }
+    p  { font-size: 0.875rem; color: rgba(251,250,248,0.5); max-width: 280px; line-height: 1.6; }
+    button {
+      margin-top: 8px;
+      padding: 10px 24px;
+      border-radius: 9999px;
+      border: 1px solid #FFE2A0;
+      background: transparent;
+      color: #FFE2A0;
+      font-size: 0.875rem;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <img src="/icons/icon-192x192.png" alt="Salangi" />
+  <h1>You're offline</h1>
+  <p>Check your connection and try again. Previously visited listings may still be available.</p>
+  <button onclick="location.reload()">Try again</button>
+</body>
+</html>
