@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+    import { supabase } from '@/lib/supabase';
 
 export type Category = 'All' | 'Food & Drinks' | 'Shops' | 'Activities' | 'Services' | 'Stay' | 'Community & Essentials';
 
@@ -34,6 +34,35 @@ export const CATEGORIES: Record<string, Category> = {
   COMMUNITY: 'Community & Essentials',
 };
 
+// ─── Simple TTL cache ─────────────────────────────────────────────────────────
+// Stores results in memory so repeated calls within the TTL window hit the DB
+// only once. Cache is busted automatically on any write (create/update/delete).
+
+const TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+interface CacheEntry<T> { data: T; expires: number; }
+const cache = new Map<string, CacheEntry<any>>();
+
+function getCache<T>(key: string): T | null {
+  const entry = cache.get(key);
+  if (!entry || Date.now() > entry.expires) { cache.delete(key); return null; }
+  return entry.data as T;
+}
+
+function setCache<T>(key: string, data: T): void {
+  cache.set(key, { data, expires: Date.now() + TTL_MS });
+}
+
+function bustListingsCache(): void {
+  for (const key of cache.keys()) {
+    if (key.startsWith('listings:') || key.startsWith('ratings:')) {
+      cache.delete(key);
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 function mapRow(row: any): Listing {
   return {
     id: row.id,
@@ -54,17 +83,28 @@ function mapRow(row: any): Listing {
 }
 
 export async function getListings(): Promise<Listing[]> {
+  const cached = getCache<Listing[]>('listings:all');
+  if (cached) return cached;
+
   const { data, error } = await supabase
     .from('listings')
     .select('*')
     .eq('verified', true)
     .order('id');
   if (error) throw error;
-  return data.map(mapRow);
+
+  const result = data.map(mapRow);
+  setCache('listings:all', result);
+  return result;
 }
 
 export async function getListingsByCategory(category: Category): Promise<Listing[]> {
   if (category === 'All') return getListings();
+
+  const cacheKey = `listings:category:${category}`;
+  const cached = getCache<Listing[]>(cacheKey);
+  if (cached) return cached;
+
   const { data, error } = await supabase
     .from('listings')
     .select('*')
@@ -72,27 +112,44 @@ export async function getListingsByCategory(category: Category): Promise<Listing
     .eq('verified', true)
     .order('id');
   if (error) throw error;
-  return data.map(mapRow);
+
+  const result = data.map(mapRow);
+  setCache(cacheKey, result);
+  return result;
 }
 
 export async function getListingById(id: number): Promise<Listing | null> {
+  const cacheKey = `listings:id:${id}`;
+  const cached = getCache<Listing>(cacheKey);
+  if (cached) return cached;
+
   const { data, error } = await supabase
     .from('listings')
     .select('*')
     .eq('id', id)
     .single();
   if (error) return null;
-  return mapRow(data);
+
+  const result = mapRow(data);
+  setCache(cacheKey, result);
+  return result;
 }
 
 export async function getListingBySlug(slug: string): Promise<Listing | null> {
+  const cacheKey = `listings:slug:${slug}`;
+  const cached = getCache<Listing>(cacheKey);
+  if (cached) return cached;
+
   const { data, error } = await supabase
     .from('listings')
     .select('*')
     .eq('slug', slug)
     .single();
   if (error) return null;
-  return mapRow(data);
+
+  const result = mapRow(data);
+  setCache(cacheKey, result);
+  return result;
 }
 
 export async function createListing(listing: Omit<Listing, 'id'>): Promise<Listing> {
@@ -116,6 +173,7 @@ export async function createListing(listing: Omit<Listing, 'id'>): Promise<Listi
     .select()
     .single();
   if (error) throw error;
+  bustListingsCache();
   return mapRow(data);
 }
 
@@ -140,19 +198,23 @@ export async function updateListing(id: number, updates: Partial<Omit<Listing, '
     .select()
     .single();
   if (error) throw error;
+  bustListingsCache();
   return mapRow(data);
 }
 
 export async function deleteListing(id: number): Promise<void> {
   const { error } = await supabase.from('listings').delete().eq('id', id);
   if (error) throw error;
+  bustListingsCache();
 }
 
 export async function getAverageRatings(): Promise<Record<number, number>> {
+  const cached = getCache<Record<number, number>>('ratings:all');
+  if (cached) return cached;
+
   const { data, error } = await supabase
     .from('reviews')
     .select('listing_id, rating');
-
   if (error) throw error;
 
   const ratingsMap: Record<number, number[]> = {};
@@ -166,5 +228,6 @@ export async function getAverageRatings(): Promise<Record<number, number>> {
     averages[Number(id)] = ratings.reduce((a, b) => a + b, 0) / ratings.length;
   });
 
+  setCache('ratings:all', averages);
   return averages;
 }
