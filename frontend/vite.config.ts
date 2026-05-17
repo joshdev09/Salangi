@@ -44,23 +44,35 @@ export default defineConfig({
         ],
       },
       workbox: {
-        // Cache the app shell (JS/CSS/HTML)
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // Precache the app shell (JS/CSS/PNG/SVG/woff2)
+        // Deliberately exclude html — navigation is handled by NetworkFirst below
+        globPatterns: ['**/*.{js,css,ico,png,svg,woff2}'],
 
         // Runtime caching strategies
         runtimeCaching: [
-          // Supabase API — network-first, fall back to cache (listings data)
+          // SPA navigation — always try network first, fall back to
+          // cached index.html, and only show offline.html when both fail
+          {
+            urlPattern: ({ request }) => request.mode === 'navigate',
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'navigation-cache',
+              networkTimeoutSeconds: 5,
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          // Supabase API — network-first, fall back to cache
           {
             urlPattern: ({ url }) => url.hostname.includes('supabase.co'),
             handler: 'NetworkFirst',
             options: {
               cacheName: 'supabase-api-cache',
-              expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 }, // 24 h
+              expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 },
               networkTimeoutSeconds: 5,
               cacheableResponse: { statuses: [0, 200] },
             },
           },
-          // Tile images from OpenStreetMap / Leaflet
+          // Map tiles — cache first, long TTL
           {
             urlPattern: ({ url }) =>
               url.hostname.includes('tile.openstreetmap.org') ||
@@ -68,11 +80,11 @@ export default defineConfig({
             handler: 'CacheFirst',
             options: {
               cacheName: 'map-tiles-cache',
-              expiration: { maxEntries: 500, maxAgeSeconds: 60 * 60 * 24 * 7 }, // 7 days
+              expiration: { maxEntries: 500, maxAgeSeconds: 60 * 60 * 24 * 7 },
               cacheableResponse: { statuses: [0, 200] },
             },
           },
-          // Google Fonts / external fonts
+          // Google Fonts
           {
             urlPattern: ({ url }) => url.hostname.includes('fonts.g'),
             handler: 'StaleWhileRevalidate',
@@ -84,14 +96,13 @@ export default defineConfig({
           },
         ],
 
-        // Serve offline.html for navigation requests when network fails
-        navigateFallback: '/offline.html',
-        navigateFallbackDenylist: [/^\/api\//],
+        // Remove navigateFallback — navigation is handled by NetworkFirst above
+        // offline.html is still precached and available but not auto-injected
+        navigateFallback: null,
       },
 
       devOptions: {
-        enabled: true,        // lets you test the SW in vite dev mode
-        type: 'module',
+        enabled: false,
       },
     }),
   ],
