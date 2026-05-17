@@ -265,10 +265,61 @@ function DetailedBusinessCard({
     fetchPhotos();
   }, [listingId, activeTab]);
 
+  // ── Sightengine image moderation ──────────────────────────────────────────
+  const isImageSafe = async (file: File): Promise<boolean> => {
+    try {
+      const formData = new FormData();
+      formData.append('media', file);
+      formData.append('models', 'nudity,offensive,gore');
+      formData.append('api_user', import.meta.env.VITE_SIGHTENGINE_USER);
+      formData.append('api_secret', import.meta.env.VITE_SIGHTENGINE_SECRET);
+      const res = await fetch('https://api.sightengine.com/1.0/check.json', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (data.status !== 'success') return true; // fail open if API errors
+      const nudity = data.nudity?.raw ?? 0;
+      const offensive = data.offensive?.prob ?? 0;
+      const gore = data.gore?.prob ?? 0;
+      return nudity < 0.6 && offensive < 0.6 && gore < 0.6;
+    } catch {
+      return true; // fail open on network error
+    }
+  };
+
+  // ── Sightengine text moderation ───────────────────────────────────────────
+  const isTextSafe = async (text: string): Promise<boolean> => {
+    try {
+      const params = new URLSearchParams({
+        text,
+        lang: 'en',
+        mode: 'rules',
+        api_user: import.meta.env.VITE_SIGHTENGINE_USER,
+        api_secret: import.meta.env.VITE_SIGHTENGINE_SECRET,
+      });
+      const res = await fetch(`https://api.sightengine.com/1.0/text/check.json?${params}`);
+      const data = await res.json();
+      if (data.status !== 'success') return true; // fail open
+      // Flag if any profanity or personal attacks detected
+      const profanity = data.profanity?.matches?.length > 0;
+      const personal = data.personal?.matches?.length > 0;
+      return !profanity && !personal;
+    } catch {
+      return true; // fail open on network error
+    }
+  };
+
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !session?.user) return;
     setPhotoUploading(true);
+
+    const safe = await isImageSafe(file);
+    if (!safe) {
+      setPhotoUploading(false);
+      if (photoInputRef.current) photoInputRef.current.value = '';
+      alert('This image was flagged as inappropriate and could not be uploaded.');
+      return;
+    }
+
     const storagePath = `visitor/${listingId}/${session.user.id}/${Date.now()}_${file.name}`;
     const { error: uploadError } = await supabase.storage
       .from('gallery-images')
@@ -347,6 +398,12 @@ function DetailedBusinessCard({
       const user = session?.user;
       if (!user) {
         setReviewError('You must be logged in to leave a review.');
+        setSubmitting(false);
+        return;
+      }
+      const safe = await isTextSafe(comment);
+      if (!safe) {
+        setReviewError('Your review contains inappropriate language. Please revise and try again.');
         setSubmitting(false);
         return;
       }
