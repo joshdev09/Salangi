@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { ChevronLeft, ChevronRight, Image as ImageIcon, X, ZoomIn } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { ChevronLeft, ChevronRight, Image as ImageIcon, X, ZoomIn, Plus, Trash2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase'; 
 import { useAuth } from '@/context/authContext';
 import { createPortal } from 'react-dom';
@@ -199,11 +199,19 @@ function DetailedBusinessCard({
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   // ── Custom Tab ─────────────────────────────────────────────────────────────
-  type TabName = 'overview' | 'custom' | 'reviews';
+  type TabName = 'overview' | 'custom' | 'reviews' | 'photos';
   interface TabItem { id: number; category: string; name: string; price: number; sort_order: number; }
   const [activeTab, setActiveTab] = useState<TabName>('overview');
   const [customTabLabel, setCustomTabLabel] = useState<string | null>(null);
   const [tabItems, setTabItems] = useState<TabItem[]>([]);
+
+  // ── Visitor Photos ─────────────────────────────────────────────────────────
+  interface VisitorPhoto { id: string; url: string; storage_path: string; user_id: string; uploaded_at: string; }
+  const [visitorPhotos, setVisitorPhotos] = useState<VisitorPhoto[]>([]);
+  const [photosLoading, setPhotosLoading] = useState(false);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoLightboxIndex, setPhotoLightboxIndex] = useState<number | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   const hasImages = allImages.length > 0;
 
@@ -240,6 +248,47 @@ function DetailedBusinessCard({
 
     fetchTab();
   }, [listingId]);
+
+  // ── Fetch visitor photos ───────────────────────────────────────────────────
+  useEffect(() => {
+    if (activeTab !== 'photos') return;
+    const fetchPhotos = async () => {
+      setPhotosLoading(true);
+      const { data } = await supabase
+        .from('visitor_photos')
+        .select('*')
+        .eq('listing_id', listingId)
+        .order('uploaded_at', { ascending: false });
+      setVisitorPhotos(data ?? []);
+      setPhotosLoading(false);
+    };
+    fetchPhotos();
+  }, [listingId, activeTab]);
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !session?.user) return;
+    setPhotoUploading(true);
+    const storagePath = `visitor/${listingId}/${session.user.id}/${Date.now()}_${file.name}`;
+    const { error: uploadError } = await supabase.storage
+      .from('gallery-images')
+      .upload(storagePath, file);
+    if (uploadError) { setPhotoUploading(false); return; }
+    const { data: urlData } = supabase.storage.from('gallery-images').getPublicUrl(storagePath);
+    const { data: inserted } = await supabase
+      .from('visitor_photos')
+      .insert({ listing_id: listingId, user_id: session.user.id, url: urlData.publicUrl, storage_path: storagePath })
+      .select().single();
+    if (inserted) setVisitorPhotos(prev => [inserted, ...prev]);
+    setPhotoUploading(false);
+    if (photoInputRef.current) photoInputRef.current.value = '';
+  };
+
+  const handlePhotoDelete = async (photo: VisitorPhoto) => {
+    await supabase.storage.from('gallery-images').remove([photo.storage_path]);
+    await supabase.from('visitor_photos').delete().eq('id', photo.id);
+    setVisitorPhotos(prev => prev.filter(p => p.id !== photo.id));
+  };
 
   const nextImage = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -431,7 +480,7 @@ function DetailedBusinessCard({
 
             {/* ── Tab Bar ──────────────────────────────────────────────────── */}
             <div className="flex gap-1 mb-5 border-b border-zinc-700/50">
-              {(['overview', ...(customTabLabel ? ['custom'] : []), 'reviews'] as const).map((tab) => {
+              {(['overview', ...(customTabLabel ? ['custom'] : []), 'reviews', 'photos'] as const).map((tab) => {
                 const label = tab === 'custom' ? customTabLabel! : tab.charAt(0).toUpperCase() + tab.slice(1);
                 const isActive = activeTab === tab;
                 return (
@@ -604,6 +653,76 @@ function DetailedBusinessCard({
                   )}
                 </div>
               </>
+            )}
+            {/* ── Photos Panel ─────────────────────────────────────────────── */}
+            {activeTab === 'photos' && (
+              <div className="pb-6">
+                {/* Upload button */}
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-xs text-zinc-400">
+                    {visitorPhotos.length} visitor photo{visitorPhotos.length !== 1 ? 's' : ''}
+                  </p>
+                  <button
+                    onClick={() => guardAction('photo', () => photoInputRef.current?.click())}
+                    disabled={photoUploading}
+                    className="flex items-center gap-1.5 bg-[#FFE2A0] text-[#1a1a1a] px-3 py-1.5 rounded-lg text-xs font-bold hover:brightness-110 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    <Plus size={13} />
+                    {photoUploading ? 'Uploading...' : 'Add Photo'}
+                  </button>
+                  <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+                </div>
+
+                {photosLoading ? (
+                  <div className="grid grid-cols-3 gap-2">
+                    {[...Array(6)].map((_, i) => (
+                      <div key={i} className="aspect-square bg-[#2a2a2a] animate-pulse rounded-lg" />
+                    ))}
+                  </div>
+                ) : visitorPhotos.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-center gap-3">
+                    <div className="w-14 h-14 rounded-full bg-[#2a2a2a] flex items-center justify-center">
+                      <ImageIcon size={24} className="text-zinc-600" />
+                    </div>
+                    <p className="text-sm text-zinc-500">No visitor photos yet</p>
+                    <p className="text-xs text-zinc-600">Be the first to share a photo!</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 gap-2">
+                    {visitorPhotos.map((photo, idx) => (
+                      <div
+                        key={photo.id}
+                        className="group relative aspect-square rounded-lg overflow-hidden bg-[#2a2a2a] cursor-zoom-in"
+                        onClick={() => setPhotoLightboxIndex(idx)}
+                      >
+                        <img src={photo.url} alt="visitor photo" className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors" />
+                        {/* Delete button — only for uploader */}
+                        {session?.user?.id === photo.user_id && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handlePhotoDelete(photo); }}
+                            className="absolute top-1.5 right-1.5 p-1.5 bg-red-500/80 rounded-md opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                          >
+                            <Trash2 size={11} className="text-white" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Lightbox for visitor photos */}
+                {photoLightboxIndex !== null && createPortal(
+                  <Lightbox
+                    images={visitorPhotos.map(p => p.url)}
+                    activeIndex={photoLightboxIndex}
+                    onClose={() => setPhotoLightboxIndex(null)}
+                    onPrev={() => setPhotoLightboxIndex(i => i === null ? null : (i === 0 ? visitorPhotos.length - 1 : i - 1))}
+                    onNext={() => setPhotoLightboxIndex(i => i === null ? null : (i === visitorPhotos.length - 1 ? 0 : i + 1))}
+                  />,
+                  document.body
+                )}
+              </div>
             )}
           </div>
         </div>
