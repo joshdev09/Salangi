@@ -288,22 +288,11 @@ function DetailedBusinessCard({
   // ── Sightengine text moderation ───────────────────────────────────────────
   const isTextSafe = async (text: string): Promise<boolean> => {
     try {
-      const params = new URLSearchParams({
-        text,
-        lang: 'en',
-        mode: 'rules',
-        api_user: import.meta.env.VITE_SIGHTENGINE_USER,
-        api_secret: import.meta.env.VITE_SIGHTENGINE_SECRET,
-      });
-      const res = await fetch(`https://api.sightengine.com/1.0/text/check.json?${params}`);
-      const data = await res.json();
-      if (data.status !== 'success') return true; // fail open
-      // Flag if any profanity or personal attacks detected
-      const profanity = data.profanity?.matches?.length > 0;
-      const personal = data.personal?.matches?.length > 0;
-      return !profanity && !personal;
+      const { data, error } = await supabase.functions.invoke('moderate-text', { body: { text } });
+      if (error) return true; // fail open
+      return data?.safe === true;
     } catch {
-      return true; // fail open on network error
+      return true;
     }
   };
 
