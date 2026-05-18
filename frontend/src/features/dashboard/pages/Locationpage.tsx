@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import search from '@assets/icons/search-back-btn.svg';
 import sampleImage from '@assets/png-files/imagesample.png';
@@ -24,20 +24,6 @@ interface Review {
   comment: string;
   profilePic?: string;
 }
-
-const DEFAULT_LISTING: Listing = {
-  id: 1,
-  name: "Holy Rosary Parish Church",
-  location: "Angeles City, Pampanga",
-  hours: "8:00 am - 10:00 pm (Mon-Fri)",
-  coordinates: { lat: 15.1450, lng: 120.5887 },
-  category: 'Activities',
-  description: "One of Pampanga's oldest and most revered churches.",
-  images: [sampleImage, bg, sampleImage],
-  verified: true,
-  phone: '+63 928 520 7489',
-  facebook: 'facebook.com/hrpacofficial',
-};
 
 function Locationpage() {
   const { state } = useLocation();
@@ -223,7 +209,7 @@ function Locationpage() {
     setSearchQuery(e.target.value);
   };
 
-  // ── Drag handlers ────────────────────────────────────────────────────────
+  // ── Drag handlers with visual friction and constraints ─────────────────────
   const handleDragStart = (e: React.TouchEvent) => {
     isDragging.current = true;
     dragStartY.current = e.touches[0].clientY;
@@ -233,17 +219,19 @@ function Locationpage() {
   const handleDragMove = (e: React.TouchEvent) => {
     if (!isDragging.current) return;
     const delta = e.touches[0].clientY - dragStartY.current;
-    if (delta > 0) setDragOffset(delta); // only allow dragging down
+    
+    if (delta > 0) {
+      const naturalOffset = Math.min(delta * 0.6, 200);
+      setDragOffset(naturalOffset);
+    }
   };
 
   const handleDragEnd = () => {
     isDragging.current = false;
-    if (dragOffset > 80) {
-      // dragged far enough — close the card but keep the route
+    if (dragOffset > 140) {
       setSidebarOpen(false);
       setTimeout(() => setDragOffset(0), 350);
     } else {
-      // snap back up
       setDragOffset(0);
     }
   };
@@ -281,6 +269,7 @@ function Locationpage() {
           selectedListing={selectedListing}
           onSelect={handleMarkerSelect}
           onNavInfo={setNavInfo}
+          onMapClick={handleCloseSidebar}
         />
       </div>
 
@@ -308,14 +297,14 @@ function Locationpage() {
           />
         </div>
 
-        {/* Mobile nav HUD pill */}
+        {/* Unified nav HUD pill (md:hidden removed so it functions perfectly on web views) */}
         {!searchOpen && navInfo && (
-          <div className="md:hidden pointer-events-auto flex items-stretch bg-[#0F172A]/90 backdrop-blur-md rounded-full shadow-lg overflow-hidden border border-white/10 shrink-0">
-            <div className="flex flex-col items-center justify-center px-3 py-1.5 border-r border-white/10">
+          <div className="pointer-events-auto flex items-stretch bg-[#0F172A]/92 backdrop-blur-md rounded-full shadow-lg overflow-hidden border border-white/10 shrink-0 h-10">
+            <div className="flex flex-col items-center justify-center px-4 py-1 border-r border-white/10">
               <span className="text-[9px] font-semibold tracking-widest text-slate-500 uppercase leading-none mb-0.5">ETA</span>
               <span className="text-xs font-bold text-[#FFE2A0] leading-none">{navInfo.eta}</span>
             </div>
-            <div className="flex flex-col items-center justify-center px-3 py-1.5">
+            <div className="flex flex-col items-center justify-center px-4 py-1">
               <span className="text-[9px] font-semibold tracking-widest text-slate-500 uppercase leading-none mb-0.5">Dist</span>
               <span className="text-xs font-bold text-[#F1F5F9] leading-none">{navInfo.distanceRemaining}</span>
             </div>
@@ -380,8 +369,8 @@ function Locationpage() {
 
       {/* ── "Tap a pin" hint ────────────────────────────────────────────── */}
       {!sidebarOpen && !isSearching && (
-        <div className={`absolute bottom-8 left-1/2 -translate-x-1/2 z-10 pointer-events-none ${sidebarOpen ? 'md:left-[calc(50%+250px)]' : 'md:left-1/2'}`}>
-          <div className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-[#1A1A1A]/80 backdrop-blur-sm border border-zinc-700/40 shadow-xl animate-pulse-slow">
+        <div className={`absolute bottom-24 left-1/2 -translate-x-1/2 z-10 pointer-events-none`}>
+          <div className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-[#1A1A1A]/80 backdrop-blur-sm border border-zinc-700/40 shadow-xl">
             <span className="text-base">📍</span>
             <span className="text-xs text-[#FBFAF8]/70 font-medium whitespace-nowrap">
               Tap a pin to explore businesses
@@ -392,7 +381,7 @@ function Locationpage() {
 
       {/* ── Re-open card button — shown when card is dismissed but route is active ── */}
       {!sidebarOpen && selectedListing && navInfo && (
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10 md:hidden">
+        <div className="absolute bottom-28 left-1/2 -translate-x-1/2 z-10 md:hidden">
           <button
             onClick={() => setSidebarOpen(true)}
             className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-[#1A1A1A]/90 backdrop-blur-sm border border-zinc-700/40 shadow-xl text-[#FBFAF8]/80 text-xs font-medium"
@@ -407,13 +396,15 @@ function Locationpage() {
 
       {/* ── Detail Sidebar ──────────────────────────────────────────────── */}
       <div
+        onClick={() => { if (!sidebarOpen && selectedListing) setSidebarOpen(true); }}
         className={`
-          absolute z-30
-          bottom-0 left-0 right-0 h-[60vh] rounded-t-2xl
-          md:top-0 md:bottom-0 md:left-0 md:right-auto md:h-full md:rounded-none
+          absolute z-[40] 
+          left-0 right-0 h-[60vh] rounded-t-2xl
+          bottom-[72px] 
+          md:top-0 md:bottom-0 md:left-0 md:right-auto md:h-full md:rounded-none md:bottom-0
           bg-[#1A1A1A] border-t border-zinc-800 md:border-t-0 md:border-r
           overflow-hidden flex flex-col
-          ${!sidebarOpen ? 'md:hidden' : ''}
+          ${!sidebarOpen ? 'cursor-pointer' : ''} 
         `}
         style={{
           willChange: 'transform',
@@ -422,11 +413,10 @@ function Locationpage() {
           maxWidth: '500px',
           transform: sidebarOpen
             ? `translateY(${dragOffset}px)`
-            : 'translateY(100%)',
-          // no transition while actively dragging so it follows your finger
+            : 'translateY(calc(100% - 44px))', 
           transition: isDragging.current
             ? 'none'
-            : 'transform 350ms cubic-bezier(0.32,0.72,0,1)',
+            : 'transform 300ms cubic-bezier(0.25, 0.8, 0.25, 1)',
         }}
       >
         {/* Drag handle (mobile only) */}
@@ -442,7 +432,7 @@ function Locationpage() {
         {/* Sidebar header */}
         <div className="flex items-center justify-between px-4 py-3 shrink-0 border-b border-zinc-800/60 md:border-b-0 md:pt-4">
           <button
-            onClick={handleCloseSidebar}
+            onClick={(e) => { e.stopPropagation(); handleCloseSidebar(); }}
             className="hidden md:flex items-center gap-2 text-[#FBFAF8]/50 hover:text-[#FBFAF8] transition-colors text-sm"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -451,7 +441,7 @@ function Locationpage() {
             Back to map
           </button>
           <button
-            onClick={handleCloseSidebar}
+            onClick={(e) => { e.stopPropagation(); handleCloseSidebar(); }}
             className="md:hidden flex items-center justify-center w-8 h-8 rounded-full bg-[#2D2D2D] hover:bg-[#3D3D3D] transition-colors text-[#FBFAF8]/70 text-sm"
           >
             ✕

@@ -17,10 +17,9 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 });
 
-// ─── ORS API Key ──────────────────────────────────────────────────────────────
+// ─── Geoapify API Configuration ──────────────────────────────────────────────
 
-const ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImRjNGVmODljMTk1NDQxYjA4YjRiZjJiOTg1OTEzOWYyIiwiaCI6Im11cm11cjY0In0=";
-const ORS_BASE_URL = "https://api.heigit.org/v2/directions/driving-car";
+const GEOAPIFY_API_KEY = "283dc4c21bbc4ef78de63b1f6e2a0d5f";
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
@@ -121,49 +120,43 @@ function computeRemainingDistance(coords: L.LatLng[], startIndex: number): numbe
   return total;
 }
 
-function formatDistance(meters: number): string {
-  if (meters < 1000) return `${Math.round(meters)} m`;
-  return `${(meters / 1000).toFixed(1)} km`;
-}
+// ─── Geoapify Route Fetcher ──────────────────────────────────────────────────
 
-function formatETA(seconds: number): string {
-  const totalMins = Math.round(seconds / 60);
-  if (totalMins < 60) return `${totalMins} min${totalMins !== 1 ? "s" : ""} away`;
-  const hrs = Math.floor(totalMins / 60);
-  const mins = totalMins % 60;
-  return mins > 0 ? `${hrs} hr ${mins} min${mins !== 1 ? "s" : ""}` : `${hrs} hr`;
-}
-
-// ─── ORS Route Fetcher ────────────────────────────────────────────────────────
-
-async function fetchORSRoute(
+async function fetchGeoapifyRoute(
   from: { lat: number; lng: number },
   to: { lat: number; lng: number }
 ): Promise<{ coords: L.LatLng[]; totalDistance: number; totalDuration: number } | null> {
   try {
-    const url = `${ORS_BASE_URL}?api_key=${ORS_API_KEY}&start=${from.lng},${from.lat}&end=${to.lng},${to.lat}`;
-    const res = await fetch(url, {
-      headers: { Accept: "application/json, application/geo+json" },
-    });
+    const url = `https://api.geoapify.com/v1/routing?waypoints=${from.lat},${from.lng}|${to.lat},${to.lng}&mode=drive&apiKey=${GEOAPIFY_API_KEY}`;
+
+    const res = await fetch(url);
+
     if (!res.ok) {
-      console.warn("ORS routing failed:", res.status, await res.text());
+      console.warn("Geoapify routing failed:", res.status, await res.text());
       return null;
     }
+
     const data = await res.json();
     const feature = data.features?.[0];
     if (!feature) return null;
 
-    const coords: L.LatLng[] = feature.geometry.coordinates.map(
+    const geomType = feature.geometry.type;
+    let rawCoords = feature.geometry.coordinates;
+    if (geomType === "MultiLineString") {
+      rawCoords = rawCoords.flat(1);
+    }
+
+    const coords: L.LatLng[] = rawCoords.map(
       ([lng, lat]: [number, number]) => L.latLng(lat, lng)
     );
-    const summary = feature.properties.summary;
+
     return {
       coords,
-      totalDistance: summary.distance,
-      totalDuration: summary.duration,
+      totalDistance: feature.properties.distance,
+      totalDuration: feature.properties.time,
     };
   } catch (err) {
-    console.warn("ORS fetch error:", err);
+    console.warn("Geoapify fetch error:", err);
     return null;
   }
 }
@@ -172,85 +165,6 @@ async function fetchORSRoute(
 
 const DEVIATION_THRESHOLD = 25;
 const POSITION_THROTTLE_MS = 1500;
-
-// ─── HUD Styles ───────────────────────────────────────────────────────────────
-
-const HUD_STYLES = `
-  .mapview-hud {
-    position: absolute;
-    bottom: max(24px, env(safe-area-inset-bottom, 24px));
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 1000;
-    display: flex;
-    align-items: stretch;
-    background: rgba(15, 23, 42, 0.92);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border-radius: 16px;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.07);
-    overflow: hidden;
-    font-family: 'SF Pro Display', 'Segoe UI', sans-serif;
-    width: calc(100% - 32px);
-    max-width: 360px;
-  }
-  .mapview-hud__block {
-    padding: 14px 20px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 3px;
-    flex: 1;
-    min-width: 0;
-  }
-  .mapview-hud__block--left {
-    border-right: 1px solid rgba(255,255,255,0.08);
-  }
-  .mapview-hud__label {
-    font-size: clamp(9px, 2.5vw, 11px);
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    color: #64748B;
-    text-transform: uppercase;
-    white-space: nowrap;
-  }
-  .mapview-hud__value {
-    font-weight: 700;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 100%;
-  }
-  .mapview-hud__value--eta {
-    font-size: clamp(13px, 3.5vw, 15px);
-    color: #FFE2A0;
-  }
-  .mapview-hud__value--distance {
-    font-size: clamp(13px, 3.5vw, 15px);
-    color: #F1F5F9;
-  }
-  .mapview-hud__divider {
-    width: 4px;
-    height: 4px;
-    border-radius: 50%;
-    background: #334155;
-    align-self: center;
-    flex-shrink: 0;
-    margin: 0 2px;
-  }
-  .leaflet-control-attribution {
-    font-size: 10px !important;
-    max-width: calc(100vw - 16px) !important;
-  }
-  .leaflet-top.leaflet-left {
-    top: max(10px, env(safe-area-inset-top, 10px));
-    left: max(10px, env(safe-area-inset-left, 10px));
-  }
-  .leaflet-top.leaflet-right {
-    top: max(10px, env(safe-area-inset-top, 10px));
-    right: max(10px, env(safe-area-inset-right, 10px));
-  }
-`;
 
 export interface NavInfo {
   distanceRemaining: string;
@@ -262,6 +176,7 @@ interface MapViewProps {
   selectedListing?: Listing | null;
   onSelect?: (listing: Listing) => void;
   onNavInfo?: (info: NavInfo | null) => void;
+  onMapClick?: () => void;
 }
 
 const MapView = ({
@@ -269,6 +184,7 @@ const MapView = ({
   selectedListing = null,
   onSelect = () => {},
   onNavInfo,
+  onMapClick,
 }: MapViewProps) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -277,6 +193,10 @@ const MapView = ({
 
   const remainingPolylineRef = useRef<L.Polyline | null>(null);
   const completedPolylineRef = useRef<L.Polyline | null>(null);
+  const outlinePolylineRef = useRef<L.Polyline | null>(null);
+
+  const currentRouteKeyRef = useRef<string>("");
+  const activeRoutedTargetIdRef = useRef<number | null>(null);
 
   const routeCoordsRef = useRef<L.LatLng[]>([]);
   const totalRouteDurationRef = useRef<number>(0);
@@ -293,27 +213,41 @@ const MapView = ({
   const routerLocation = useLocation();
   const selectedFromRoute: Listing | undefined = routerLocation.state?.listing;
 
+  // ✅ FIX: Keep track of mutable parent close functions without forcing re-initialization hooks
+  const onMapClickRef = useRef(onMapClick);
+  useEffect(() => {
+    onMapClickRef.current = onMapClick;
+  }, [onMapClick]);
+
   useEffect(() => {
     onNavInfo?.(navInfo);
   }, [navInfo, onNavInfo]);
 
-  // ── Inject HUD styles ──────────────────────────────────────────────────────
-  useEffect(() => {
-    const id = "mapview-hud-styles";
-    if (!document.getElementById(id)) {
-      const style = document.createElement("style");
-      style.id = id;
-      style.textContent = HUD_STYLES;
-      document.head.appendChild(style);
-    }
-    return () => { document.getElementById(id)?.remove(); };
-  }, []);
+  // ── Helpers for Formatting metric readouts ───────────────────────────────────
+  const formatDistance = (meters: number): string => {
+    if (meters < 1000) return `${Math.round(meters)} m`;
+    return `${(meters / 1000).toFixed(1)} km`;
+  };
+
+  const formatETA = (seconds: number): string => {
+    const realisticSeconds = seconds * 1.45;
+    const totalMins = Math.round(realisticSeconds / 60);
+    if (totalMins < 60) return `${totalMins} min${totalMins !== 1 ? "s" : ""} away`;
+    const hrs = Math.floor(totalMins / 60);
+    const mins = totalMins % 60;
+    return mins > 0 ? `${hrs} hr ${mins} min${mins !== 1 ? "s" : ""}` : `${hrs} hr`;
+  };
 
   // ── Map Init ───────────────────────────────────────────────────────────────
   useEffect(() => {
     if (mapRef.current && !mapInstanceRef.current) {
       const map = L.map(mapRef.current, { zoomControl: false }).setView([15.145, 120.589], 13);
       mapInstanceRef.current = map;
+
+      // ✅ FIX: Use the mutable Ref inside the listener so the context is persistent
+      map.on("click", () => {
+        onMapClickRef.current?.();
+      });
 
       L.control.zoom({ position: "bottomright" }).addTo(map);
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -330,13 +264,14 @@ const MapView = ({
           navigator.geolocation.clearWatch(watchIdRef.current);
           watchIdRef.current = null;
         }
+        outlinePolylineRef.current?.remove();
         remainingPolylineRef.current?.remove();
         completedPolylineRef.current?.remove();
         mapInstanceRef.current?.remove();
         mapInstanceRef.current = null;
       };
     }
-  }, []);
+  }, []); // ✅ FIX: Dependency array is kept clean so map constructs exactly once
 
   // ── Update Route Progress ──────────────────────────────────────────────────
   const updateRouteProgress = useCallback(
@@ -347,21 +282,45 @@ const MapView = ({
 
       const closestIdx = findClosestPointIndex(pos, coords);
 
+      // Completed segment — gray dashed
       const completedCoords = coords.slice(0, closestIdx + 1);
       if (completedPolylineRef.current) {
         completedPolylineRef.current.setLatLngs(completedCoords);
       } else {
         completedPolylineRef.current = L.polyline(completedCoords, {
-          color: "#9CA3AF", weight: 4, opacity: 0.6, dashArray: "6 6",
+          color: "#9CA3AF",
+          weight: 5,
+          opacity: 0.7,
+          dashArray: "8 8",
+          lineCap: "round",
+          lineJoin: "round",
         }).addTo(map);
       }
 
+      // Remaining segment — keep outline in sync
       const remainingCoords = coords.slice(closestIdx);
+
+      if (outlinePolylineRef.current) {
+        outlinePolylineRef.current.setLatLngs(remainingCoords);
+      }
+
       if (remainingPolylineRef.current) {
         remainingPolylineRef.current.setLatLngs(remainingCoords);
       } else {
+        outlinePolylineRef.current = L.polyline(remainingCoords, {
+          color: "#FFFFFF",
+          weight: 10,
+          opacity: 0.35,
+          lineCap: "round",
+          lineJoin: "round",
+        }).addTo(map);
+
         remainingPolylineRef.current = L.polyline(remainingCoords, {
-          color: "#3B82F6", weight: 5, opacity: 0.9,
+          color: "#3B82F6",
+          weight: 6,
+          opacity: 0.95,
+          lineCap: "round",
+          lineJoin: "round",
         }).addTo(map);
       }
 
@@ -383,22 +342,31 @@ const MapView = ({
     []
   );
 
-  // ── Build Route via ORS ────────────────────────────────────────────────────
+  // ── Build Route via Geoapify ────────────────────────────────────────────────
   const buildRoute = useCallback(
     async (from: { lat: number; lng: number }, to: { lat: number; lng: number }) => {
       const map = mapInstanceRef.current;
-      if (!map || isBuildingRouteRef.current) return;
+      if (!map) return;
+
+      const routeKey = `${to.lat},${to.lng}-${Date.now()}-${Math.random()}`;
+      currentRouteKeyRef.current = routeKey;
 
       isBuildingRouteRef.current = true;
 
+      outlinePolylineRef.current?.remove();
       remainingPolylineRef.current?.remove();
       completedPolylineRef.current?.remove();
+      outlinePolylineRef.current = null;
       remainingPolylineRef.current = null;
       completedPolylineRef.current = null;
       routeCoordsRef.current = [];
 
-      const result = await fetchORSRoute(from, to);
+      const result = await fetchGeoapifyRoute(from, to);
       isBuildingRouteRef.current = false;
+
+      if (currentRouteKeyRef.current !== routeKey) {
+        return;
+      }
 
       if (!result) return;
 
@@ -406,8 +374,20 @@ const MapView = ({
       totalRouteDurationRef.current = result.totalDuration;
       totalRouteDistanceRef.current = result.totalDistance;
 
+      outlinePolylineRef.current = L.polyline(result.coords, {
+        color: "#FFFFFF",
+        weight: 10,
+        opacity: 0.35,
+        lineCap: "round",
+        lineJoin: "round",
+      }).addTo(map);
+
       remainingPolylineRef.current = L.polyline(result.coords, {
-        color: "#3B82F6", weight: 5, opacity: 0.9,
+        color: "#3B82F6",
+        weight: 6,
+        opacity: 0.95,
+        lineCap: "round",
+        lineJoin: "round",
       }).addTo(map);
 
       setNavInfo({
@@ -427,6 +407,31 @@ const MapView = ({
     if (watchIdRef.current !== null) {
       navigator.geolocation.clearWatch(watchIdRef.current);
     }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const coords = validateLatLng(position.coords.latitude, position.coords.longitude);
+        if (!coords) return;
+
+        const currentPos = { lat: coords[0], lng: coords[1] };
+        setUserLocation(currentPos);
+
+        const map = mapInstanceRef.current;
+        if (!map) return;
+
+        if (userMarkerRef.current) {
+          userMarkerRef.current.setLatLng(currentPos);
+        } else {
+          userMarkerRef.current = L.marker(currentPos, {
+            icon: userLocationIcon, zIndexOffset: 1000,
+          })
+            .addTo(map)
+            .bindPopup('<div style="text-align:center"><strong>📍 You are here</strong></div>');
+        }
+      },
+      (error) => { console.warn("getCurrentPosition error:", error.message); },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
+    );
 
     const id = navigator.geolocation.watchPosition(
       (position) => {
@@ -473,7 +478,7 @@ const MapView = ({
         if (error.code === error.PERMISSION_DENIED) return;
         console.warn("Location watch error:", error.message);
       },
-      { enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 }
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
     );
 
     watchIdRef.current = id;
@@ -538,7 +543,35 @@ const MapView = ({
   useEffect(() => {
     const map = mapInstanceRef.current;
     const target = selectedListing || selectedFromRoute;
-    if (!map || !target || !userLocation) return;
+
+    if (!target) {
+      activeRoutedTargetIdRef.current = null;
+      currentRouteKeyRef.current = "";
+      outlinePolylineRef.current?.remove();
+      remainingPolylineRef.current?.remove();
+      completedPolylineRef.current?.remove();
+      outlinePolylineRef.current = null;
+      remainingPolylineRef.current = null;
+      completedPolylineRef.current = null;
+      isNavigatingRef.current = false;
+      setNavInfo(null);
+      return;
+    }
+
+    if (!map || !userLocation) return;
+
+    if (activeRoutedTargetIdRef.current === target.id) return;
+
+    outlinePolylineRef.current?.remove();
+    remainingPolylineRef.current?.remove();
+    completedPolylineRef.current?.remove();
+    outlinePolylineRef.current = null;
+    remainingPolylineRef.current = null;
+    completedPolylineRef.current = null;
+    isNavigatingRef.current = false;
+    setNavInfo(null);
+
+    activeRoutedTargetIdRef.current = target.id;
 
     const dest = target.coordinates;
     const destCoords = validateLatLng(dest.lat, dest.lng);
@@ -550,33 +583,11 @@ const MapView = ({
     }
 
     buildRoute(userLocation, { lat: destCoords[0], lng: destCoords[1] });
-
-    return () => {
-      remainingPolylineRef.current?.remove();
-      completedPolylineRef.current?.remove();
-      remainingPolylineRef.current = null;
-      completedPolylineRef.current = null;
-      isNavigatingRef.current = false;
-      setNavInfo(null);
-    };
   }, [userLocation, selectedListing, selectedFromRoute, buildRoute]);
 
   return (
     <div style={{ position: "relative", width: "100%", height: "100%", overscrollBehavior: "none" }}>
       <div ref={mapRef} style={{ width: "100%", height: "100%", WebkitTouchCallout: "none" }} />
-      {navInfo && (
-        <div className="mapview-hud">
-          <div className="mapview-hud__block mapview-hud__block--left">
-            <span className="mapview-hud__label">ETA</span>
-            <span className="mapview-hud__value mapview-hud__value--eta">{navInfo.eta}</span>
-          </div>
-          <div className="mapview-hud__divider" />
-          <div className="mapview-hud__block">
-            <span className="mapview-hud__label">Distance</span>
-            <span className="mapview-hud__value mapview-hud__value--distance">{navInfo.distanceRemaining}</span>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
