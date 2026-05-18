@@ -19,7 +19,7 @@ L.Icon.Default.mergeOptions({
 
 // ─── Geoapify API Configuration ──────────────────────────────────────────────
 
-const GEOAPIFY_API_KEY = "283dc4c21bbc4ef78de63b1f6e2a0d5f";
+const GEOAPIFY_API_KEY = import.meta.env.VITE_GEOAPIFY_API_KEY;
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
