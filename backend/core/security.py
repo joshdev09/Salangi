@@ -60,13 +60,18 @@ def decode_token(token: str) -> dict | None:
 
 
 
+_JWT_SECRET = os.getenv("JWT_SECRET")
+if not _JWT_SECRET:
+    raise ValueError("JWT_SECRET not found in .env")
+
+
 def generate_verification_token(email: str) -> str:
-    s = URLSafeTimedSerializer(os.getenv("JWT_SECRET", "your-secret-key"))
+    s = URLSafeTimedSerializer(_JWT_SECRET)
     return s.dumps(email, salt="email-verify")
 
 
 def confirm_verification_token(token: str, expiration=86400):
-    s = URLSafeTimedSerializer(os.getenv("JWT_SECRET", "your-secret-key"))
+    s = URLSafeTimedSerializer(_JWT_SECRET)
     try:
         email = s.loads(token, salt="email-verify", max_age=expiration)
     except Exception:
@@ -75,17 +80,22 @@ def confirm_verification_token(token: str, expiration=86400):
 
 
 # ── Supabase JWT (ES256 with JWKS) ───────────────────────────────────────────
-_jwks_cache: dict | None = None  # Cache JWKS to avoid a network hit on every request
+import time
+
+_jwks_cache: dict | None = None          # Cache JWKS to avoid a network hit on every request
+_jwks_cache_ts: float = 0.0              # Unix timestamp of last successful fetch
+_JWKS_TTL: float = 3600.0               # Re-fetch after 1 hour
 
 def decode_supabase_token(token: str) -> dict | None:
-    global _jwks_cache
+    global _jwks_cache, _jwks_cache_ts
     try:
         # ── Try ES256 via JWKS first ──────────────────────────────────────────
-        if _jwks_cache is None:
+        if _jwks_cache is None or (time.time() - _jwks_cache_ts) > _JWKS_TTL:
             jwks_url = f"https://{SUPABASE_PROJECT_REF}.supabase.co/auth/v1/.well-known/jwks.json"
             try:
                 with urllib.request.urlopen(jwks_url, timeout=5) as response:
                     _jwks_cache = json.loads(response.read())
+                    _jwks_cache_ts = time.time()
             except Exception as e:
                 print(f"⚠️  JWKS fetch failed: {e}")
                 # Don't cache on failure — retry next request
