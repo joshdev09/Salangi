@@ -1,6 +1,5 @@
 import smtplib
 import os
-import html
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from dotenv import load_dotenv
@@ -39,7 +38,6 @@ def send_verification_email(to_email: str, token: str):
 def send_listing_approved_email(to_email: str, business_name: str):
     frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
     dashboard_link = f"{frontend_url}/dashboard/mybusiness"
-    business_name = html.escape(business_name)  # prevent HTML injection in email body
 
     mail_username = os.getenv("MAIL_USERNAME")
     mail_password = os.getenv("MAIL_PASSWORD")
