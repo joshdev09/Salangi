@@ -1,8 +1,10 @@
 import os
 import json
 import urllib.request
-from fastapi import APIRouter, HTTPException, Header
+from fastapi import APIRouter, HTTPException, Header, Request
 from pydantic import BaseModel
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from dotenv import load_dotenv
 from backend.core.security import get_supabase_user_id
 from backend.core.email import send_listing_approved_email
@@ -13,6 +15,7 @@ SUPABASE_URL              = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
 router = APIRouter(prefix="/api/listings", tags=["Listings"])
+limiter = Limiter(key_func=get_remote_address)
 
 
 # ── Dependency ─────────────────────────────────────────────────────────────────
@@ -62,7 +65,9 @@ def get_auth_user_email(user_id: str) -> str | None:
 # ── Routes ─────────────────────────────────────────────────────────────────────
 
 @router.post("/approve", response_model=dict)
+@limiter.limit("30/minute")
 def approve_listing(
+    request: Request,
     body: ApproveListing,
     authorization: str = Header(...),
 ):

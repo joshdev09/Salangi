@@ -1,17 +1,17 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
 
 
 class UpdateProfileRequest(BaseModel):
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    email: Optional[EmailStr] = None
+    first_name: Optional[str] = Field(None, max_length=64)
+    last_name:  Optional[str] = Field(None, max_length=64)
+    email:      Optional[EmailStr] = None
 
 class RegisterRequest(BaseModel):
-    first_name: str
-    last_name:  str
+    first_name: str     = Field(..., max_length=64)
+    last_name:  str     = Field(..., max_length=64)
     email:      EmailStr
-    password:   str
+    password:   str     = Field(..., min_length=8, max_length=128)
 
 class AuthResponse(BaseModel):
     token:      str
@@ -22,7 +22,7 @@ class AuthResponse(BaseModel):
 
 class LoginRequest(BaseModel):
     email:    EmailStr
-    password: str
+    password: str       = Field(..., max_length=128)
 
 class ChangePasswordRequest(BaseModel):
-    new_password: str
+    new_password: str   = Field(..., min_length=8, max_length=128)
