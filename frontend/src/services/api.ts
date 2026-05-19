@@ -39,7 +39,9 @@ export async function checkEmailExists(email: string): Promise<boolean> {
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? '';
 
-console.log('API Base URL:', BASE_URL, 'Mode:', import.meta.env.MODE);
+if (import.meta.env.DEV) {
+  console.log('API Base URL:', BASE_URL, 'Mode:', import.meta.env.MODE);
+}
 
 // -- Get live Supabase session token ------------------------------------------
 async function getToken(): Promise<string> {

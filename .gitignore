@@ -31,3 +31,6 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.tsbuildinfo
+
+# Supabase local dev artefacts (contain project refs and connection strings)
+supabase/.temp/
