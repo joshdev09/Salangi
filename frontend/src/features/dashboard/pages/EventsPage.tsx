@@ -365,7 +365,7 @@ function Eventspage() {
         {/* ── Content ── */}
         {loading ? (
           // ↓ Skeleton grid — same grid-cols as real events
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5 pb-10">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5 pb-24 md:pb-10">
             {Array.from({ length: 6 }).map((_, i) => (
               <SkeletonEventCard key={i} />
             ))}
@@ -375,7 +375,7 @@ function Eventspage() {
             <p className="text-[#FBFAF8]/30 text-xs mb-4 shrink-0">
               {filteredEvents.length} event{filteredEvents.length !== 1 ? 's' : ''} found
             </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5 pb-10">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5 pb-24 md:pb-10">
               {filteredEvents.map((event) => (
                 <EventCard
                   key={event.id}

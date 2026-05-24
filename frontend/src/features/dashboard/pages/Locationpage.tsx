@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import search from '@assets/icons/search-back-btn.svg';
 import sampleImage from '@assets/png-files/imagesample.png';
@@ -40,7 +41,7 @@ function Locationpage() {
   const [selectedListing, setSelectedListing] = useState<Listing | null>(
     incomingListing ?? null
   );
-  const [sidebarOpen, setSidebarOpen] = useState<boolean>(!!incomingListing);
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
 
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
@@ -193,16 +194,16 @@ function Locationpage() {
 
   const handleMarkerSelect = (listing: Listing) => {
     setSelectedListing(listing);
-    setSidebarOpen(true);
+    setSidebarOpen(false);
     setDragOffset(0);
     setSearchQuery('');
     setSearchOpen(false);
+    setTimeout(() => setSidebarOpen(true), 50);
   };
 
   const handleCloseSidebar = () => {
     setSidebarOpen(false);
     setDragOffset(0);
-    setTimeout(() => setSelectedListing(null), 350);
   };
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -216,23 +217,34 @@ function Locationpage() {
     setDragOffset(0);
   };
 
-  const handleDragMove = (e: React.TouchEvent) => {
+   const handleDragMove = (e: React.TouchEvent) => {
     if (!isDragging.current) return;
     const delta = e.touches[0].clientY - dragStartY.current;
-    
-    if (delta > 0) {
-      const naturalOffset = Math.min(delta * 0.6, 200);
-      setDragOffset(naturalOffset);
+
+    if (!sidebarOpen && delta < 0) {
+      setDragOffset(Math.max(delta, -window.innerHeight));
+    } else if (sidebarOpen && delta > 0) {
+      setDragOffset(Math.min(delta * 0.6, 200));
     }
   };
 
-  const handleDragEnd = () => {
+ 
+    const handleDragEnd = () => {
     isDragging.current = false;
-    if (dragOffset > 140) {
-      setSidebarOpen(false);
-      setTimeout(() => setDragOffset(0), 350);
+    if (!sidebarOpen) {
+      if (dragOffset < -80) {
+        setSidebarOpen(true);
+        setDragOffset(0);
+      } else {
+        setDragOffset(0);
+      }
     } else {
-      setDragOffset(0);
+      if (dragOffset > 140) {
+        setSidebarOpen(false);
+        setTimeout(() => setDragOffset(0), 350);
+      } else {
+        setDragOffset(0);
+      }
     }
   };
 
@@ -258,9 +270,9 @@ function Locationpage() {
 
   return (
     <div
-      className="relative w-full overflow-hidden bg-[#1A1A1A]"
-      style={{ height: '100dvh' }}
+      className="relative w-full overflow-hidden bg-[#1A1A1A] h-full"
     >
+
 
       {/* ── Full-screen Map ─────────────────────────────────────────────── */}
       <div className={`absolute inset-0 z-0 ${sidebarOpen ? 'md:left-500px' : 'md:left-0'}`}>
@@ -369,7 +381,7 @@ function Locationpage() {
 
       {/* ── "Tap a pin" hint ────────────────────────────────────────────── */}
       {!sidebarOpen && !isSearching && (
-        <div className={`absolute bottom-24 left-1/2 -translate-x-1/2 z-10 pointer-events-none`}>
+        <div className={`absolute bottom-32 left-1/2 -translate-x-1/2 z-10 pointer-events-none`}>
           <div className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-[#1A1A1A]/80 backdrop-blur-sm border border-zinc-700/40 shadow-xl">
             <span className="text-base">📍</span>
             <span className="text-xs text-[#FBFAF8]/70 font-medium whitespace-nowrap">
@@ -381,7 +393,7 @@ function Locationpage() {
 
       {/* ── Re-open card button — shown when card is dismissed but route is active ── */}
       {!sidebarOpen && selectedListing && navInfo && (
-        <div className="absolute bottom-28 left-1/2 -translate-x-1/2 z-10 md:hidden">
+        <div className="absolute bottom-12 left-1/2 -translate-x-1/2 z-10 md:hidden">
           <button
             onClick={() => setSidebarOpen(true)}
             className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-[#1A1A1A]/90 backdrop-blur-sm border border-zinc-700/40 shadow-xl text-[#FBFAF8]/80 text-xs font-medium"
@@ -395,13 +407,17 @@ function Locationpage() {
       )}
 
       {/* ── Detail Sidebar ──────────────────────────────────────────────── */}
+      {selectedListing ? createPortal(
       <div
         onClick={() => { if (!sidebarOpen && selectedListing) setSidebarOpen(true); }}
+        onTouchStart={!sidebarOpen && selectedListing ? handleDragStart : undefined}
+        onTouchMove={!sidebarOpen && selectedListing ? handleDragMove : undefined}
+        onTouchEnd={!sidebarOpen && selectedListing ? handleDragEnd : undefined}
         className={`
-          absolute z-[40] 
+          fixed z-[40] 
           left-0 right-0 h-[60vh] rounded-t-2xl
-          bottom-[72px] 
-          md:top-0 md:bottom-0 md:left-0 md:right-auto md:h-full md:rounded-none md:bottom-0
+          bottom-18
+          md:top-0 md:bottom-0 md:left-20 md:right-auto md:h-full md:rounded-none
           bg-[#1A1A1A] border-t border-zinc-800 md:border-t-0 md:border-r
           overflow-hidden flex flex-col
           ${!sidebarOpen ? 'cursor-pointer' : ''} 
@@ -413,7 +429,7 @@ function Locationpage() {
           maxWidth: '500px',
           transform: sidebarOpen
             ? `translateY(${dragOffset}px)`
-            : 'translateY(calc(100% - 44px))', 
+            : `translateY(calc(100% - 44px + ${dragOffset}px))`, 
           transition: isDragging.current
             ? 'none'
             : 'transform 300ms cubic-bezier(0.25, 0.8, 0.25, 1)',
@@ -432,13 +448,17 @@ function Locationpage() {
         {/* Sidebar header */}
         <div className="flex items-center justify-between px-4 py-3 shrink-0 border-b border-zinc-800/60 md:border-b-0 md:pt-4">
           <button
-            onClick={(e) => { e.stopPropagation(); handleCloseSidebar(); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (sidebarOpen) handleCloseSidebar();
+              else setSidebarOpen(true);
+            }}
             className="hidden md:flex items-center gap-2 text-[#FBFAF8]/50 hover:text-[#FBFAF8] transition-colors text-sm"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M19 12H5M5 12l7-7M5 12l7 7"/>
+              <path d={sidebarOpen ? "M19 12H5M5 12l7-7M5 12l7 7" : "M5 12h14M12 5l7 7-7 7"} />
             </svg>
-            Back to map
+            {sidebarOpen ? 'Back to map' : 'View details'}
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); handleCloseSidebar(); }}
@@ -475,6 +495,7 @@ function Locationpage() {
           )}
         </div>
       </div>
+      , document.body) : null}
 
       <LoginPromptModal {...loginPromptProps} />
     </div>
