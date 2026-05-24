@@ -205,7 +205,7 @@ export function Navigator() {
   );
 
   return (
-    <div className="flex flex-col-reverse md:flex-row h-screen overflow-hidden">
+    <div className="flex flex-row h-screen overflow-hidden">
 
       {/* Sidebar / Bottom Nav */}
       <div className="bg-[#373737] fixed bottom-0 left-0 right-0 w-full h-18 md:static md:w-20 md:h-full p-2 md:p-3 flex flex-row md:flex-col justify-between items-center shrink-0 z-50">
@@ -308,7 +308,7 @@ export function Navigator() {
         </div>
       </div>
 
-      <main className="flex-1 bg-[#1E1E1E] overflow-hidden pb-18 md:pb-0">
+      <main className="flex-1 h-full bg-[#1E1E1E] overflow-hidden md:pb-0">
         <Outlet />
       </main>
 
