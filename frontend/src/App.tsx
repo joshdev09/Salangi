@@ -37,6 +37,7 @@ import HeroListBusiness from './features/dashboard/pages/HeroListBusiness'
 import ListBusiness from './features/business-side/components/ListBusiness'
 import EmailConfirmed from './features/auth/pages/EmailConfirmed'
 import UpgradeToBusinessPage from './features/business-side/pages/UpgradeToBusinessPage'
+import SalangiSkeleton from "./components/SalangiSkeleton";
 
 // Feature Components - Admin Side
 import AdminDashboard from './features/admin/pages/AdminDashboard'
@@ -106,12 +107,8 @@ function AppRoutes() {
   const { session, role, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-[#111111] flex flex-col items-center justify-center text-white">
-        <div className="text-2xl font-bold mb-4 animate-pulse">Loading Salangi...</div>
-      </div>
-    );
-  }
+  return <SalangiSkeleton />;
+}
 
   return (
     <Routes>
