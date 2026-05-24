@@ -294,7 +294,7 @@ function Homepage() {
                 onClick={() => { setIsMobileMenuOpen(false); handleListBusinessClick(); }}
                 className="flex items-center justify-center gap-2 px-4 py-3.5 bg-[#FFE2A0] text-[#1A1A1A] rounded-xl font-bold text-md w-full shadow-lg active:scale-95 transition-all cursor-pointer"
               >
-                List Your Business
+                {role === 'business' ? 'My Dashboard' : 'List Your Business'}
               </button>
 
               <button
@@ -378,7 +378,7 @@ function Homepage() {
               onClick={handleListBusinessClick}
               className="flex items-center justify-center gap-2 px-4 py-3 bg-[#FFE2A0] text-[#1A1A1A] rounded-lg font-semibold text-sm whitespace-nowrap cursor-pointer hover:bg-[#f5d880] transition-colors w-full md:w-auto"
             >
-              List Your Business
+              {role === 'business' ? 'My Dashboard' : 'List Your Business'}
             </button>
           </div>
 
